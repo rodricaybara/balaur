@@ -1,0 +1,382 @@
+{
+  "app": {
+    "name": "Balaur SMS",
+    "fullName": "Sistema de Gestión de Software"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "confirm": "Confirmar",
+    "retry": "Reintentar",
+    "viewDetails": "Ver Detalles",
+    "noResults": "No se encontraron resultados",
+    "items": "elementos",
+    "page": "Página",
+    "of": "de",
+    "showing": "Mostrando",
+    "to": "a",
+    "results": "resultados",
+    "status": "Estado"
+  },
+  "nav": {
+    "dashboard": "Panel de Control",
+    "software": "Software",
+    "installers": "Instaladores",
+    "licenses": "Licencias",
+    "users": "Usuarios",
+    "audit": "Auditoría",
+    "logout": "Cerrar Sesión"
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar Sesión",
+      "subtitle": "Sistema de Gestión de Software",
+      "username": "Usuario",
+      "password": "Contraseña",
+      "usernamePlaceholder": "tu.usuario",
+      "passwordPlaceholder": "••••••••",
+      "signingIn": "Iniciando sesión...",
+      "signIn": "Iniciar Sesión",
+      "error": "Error de autenticación",
+      "helpText": "Utiliza tus credenciales corporativas (LDAP/AD) para acceder al sistema.",
+      "copyright": "Universidad. Todos los derechos reservados."
+    },
+    "sessionExpired": "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+    "unauthorized": "No tienes permisos para acceder a este recurso.",
+    "invalidCredentials": "Usuario o contraseña inválidos."
+  },
+  "dashboard": {
+    "title": "Panel de Control",
+    "subtitle": "Panel de control - Sistema de Gestión de Software",
+    "welcome": "Bienvenido, {name}",
+    "stats": {
+      "totalSoftware": "Total Software",
+      "installers": "Instaladores",
+      "users": "Usuarios",
+      "licenses": "Licencias",
+      "availableForDownload": "Disponibles para descarga",
+      "filesInRepository": "Archivos en repositorio",
+      "registeredUsers": "Usuarios registrados",
+      "activeLicenses": "Licencias activas"
+    },
+    "quickActions": {
+      "title": "Acciones Rápidas",
+      "exploreSoftware": {
+        "name": "Explorar Software",
+        "description": "Buscar y descargar instaladores"
+      },
+      "manageInstallers": {
+        "name": "Gestionar Instaladores",
+        "description": "Subir y organizar instaladores"
+      },
+      "manageUsers": {
+        "name": "Gestionar Usuarios",
+        "description": "Administrar usuarios del sistema"
+      },
+      "manageLicenses": {
+        "name": "Gestionar Licencias",
+        "description": "Ver y administrar licencias"
+      }
+    },
+    "roleInfo": {
+      "yourRole": "Tu rol:",
+      "guestNote": "Solo puedes ver información, no descargar."
+    }
+  },
+  "software": {
+    "title": "Catálogo de Software",
+    "newSoftware": "Nuevo Software",
+    "availableApps": "{count} aplicaciones disponibles",
+    "searchPlaceholder": "Buscar por nombre o descripción...",
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "vendor": "Proveedor",
+    "allVendors": "Todos los proveedores",
+    "clearFilters": "Limpiar filtros",
+    "viewMode": {
+      "grid": "Vista de cuadrícula",
+      "list": "Vista de lista"
+    },
+    "noSoftware": "No se encontró software",
+    "changeFilters": "Intenta cambiar los filtros de búsqueda",
+    "noSoftwareInSystem": "No hay software registrado en el sistema",
+    "website": "Sitio web",
+    "visit": "Visitar",
+    "loading": "Cargando software...",
+    "errorLoading": "Error al cargar software"
+  },
+  "installers": {
+    "title": "Gestión de Instaladores",
+    "subtitle": "Subir y gestionar instaladores de software",
+    "uploadNew": "Subir Instalador",
+    "tabs": {
+      "pending": "Pendientes ({count})",
+      "processing": "En Proceso ({count})",
+      "repository": "Repositorio"
+    },
+    "upload": {
+      "title": "Subir Instalador",
+      "instructions": "Sube tu archivo instalador vía FTP o arrastra y suelta aquí",
+      "ftpInstructions": "Instrucciones de Subida FTP",
+      "ftpServer": "Servidor FTP",
+      "ftpPath": "Ruta de Subida",
+      "ftpCredentials": "Usa tus credenciales corporativas",
+      "dragDrop": "O arrastra y suelta el archivo aquí",
+      "selectFile": "Seleccionar Archivo",
+      "uploading": "Subiendo...",
+      "validating": "Validando archivo...",
+      "success": "Archivo subido correctamente",
+      "error": "Error al subir archivo"
+    },
+    "register": {
+      "title": "Registrar Instalador",
+      "software": "Software",
+      "selectSoftware": "Seleccionar software",
+      "version": "Versión",
+      "versionPlaceholder": "ej., 2.5.1",
+      "architecture": "Arquitectura",
+      "platform": "Plataforma",
+      "notes": "Notas",
+      "notesPlaceholder": "Notas de instalación o requisitos",
+      "filename": "Nombre del archivo",
+      "filesize": "Tamaño",
+      "sha256": "SHA-256",
+      "register": "Registrar Instalador",
+      "registering": "Registrando..."
+    },
+    "list": {
+      "name": "Nombre",
+      "version": "Versión",
+      "size": "Tamaño",
+      "architecture": "Arquitectura",
+      "platform": "Plataforma",
+      "downloads": "Descargas",
+      "uploadedBy": "Subido Por",
+      "uploadDate": "Fecha de Subida",
+      "actions": "Acciones",
+      "download": "Descargar",
+      "delete": "Eliminar",
+      "noInstallers": "No hay instaladores disponibles",
+      "uploadFirst": "Sube tu primer instalador para comenzar"
+    },
+    "processing": {
+      "title": "Archivos en Proceso",
+      "description": "Estos archivos han sido validados y están listos para ser registrados",
+      "noFiles": "No hay archivos en proceso",
+      "waitingFiles": "Los archivos se procesan automáticamente cada 5 minutos"
+    },
+    "pending": {
+      "title": "Archivos Pendientes",
+      "description": "Estos archivos están esperando ser validados por el FTP Watcher",
+      "noFiles": "No hay archivos pendientes",
+      "uploadInfo": "Sube archivos vía FTP a {path}"
+    },
+    "watcher": {
+      "title": "Estado del FTP Watcher",
+      "running": "Ejecutando",
+      "stopped": "Detenido",
+      "interval": "Intervalo de comprobación: {seconds}s",
+      "lastCheck": "Última comprobación: {time}"
+    }
+  },
+  "errors": {
+    "forbidden": {
+      "title": "Acceso Denegado",
+      "message": "No tienes permisos para acceder a esta página",
+      "backToDashboard": "Volver al Panel de Control"
+    },
+    "notFound": {
+      "title": "Página No Encontrada",
+      "message": "La página que buscas no existe",
+      "backToDashboard": "Volver al Panel de Control"
+    },
+    "network": "Error de red. Por favor, verifica tu conexión.",
+    "unknown": "Ocurrió un error desconocido."
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "subtitle": "Administrar usuarios y permisos del sistema",
+    "newUser": "Nuevo Usuario",
+    "list": {
+      "username": "Nombre de Usuario",
+      "email": "Correo Electrónico",
+      "fullName": "Nombre Completo",
+      "role": "Rol",
+      "status": "Estado",
+      "lastLogin": "Último Acceso",
+      "actions": "Acciones",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "noUsers": "No se encontraron usuarios",
+      "never": "Nunca"
+    },
+    "roles": {
+      "admin": "Administrador",
+      "manager": "Gestor",
+      "user": "Usuario",
+      "guest": "Invitado"
+    },
+    "form": {
+      "title": "Detalles del Usuario",
+      "username": "Nombre de Usuario",
+      "email": "Correo Electrónico",
+      "fullName": "Nombre Completo",
+      "role": "Rol",
+      "password": "Contraseña",
+      "isActive": "Activo",
+      "isLdapUser": "Usuario LDAP",
+      "save": "Guardar Usuario",
+      "cancel": "Cancelar"
+    },
+    "delete": {
+      "title": "Eliminar Usuario",
+      "message": "¿Estás seguro de que quieres eliminar este usuario?",
+      "cannotDeleteSelf": "No puedes eliminar tu propia cuenta",
+      "confirm": "Eliminar",
+      "cancel": "Cancelar"
+    }
+  },
+  "licenses": {
+    "title": "Gestión de Licencias",
+    "subtitle": "Administrar licencias de software de forma segura",
+    "newLicense": "Nueva Licencia",
+    "list": {
+      "software": "Software",
+      "type": "Tipo",
+      "maxActivations": "Máx. Activaciones",
+      "expirationDate": "Fecha de Expiración",
+      "actions": "Acciones",
+      "view": "Ver Clave",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "noLicenses": "No se encontraron licencias",
+      "unlimited": "Ilimitado",
+      "noExpiration": "Sin expiración"
+    },
+    "types": {
+      "perpetual": "Perpetua",
+      "subscription": "Suscripción",
+      "volume": "Volumen",
+      "oem": "OEM",
+      "educational": "Educativa",
+      "trial": "Prueba"
+    },
+    "form": {
+      "title": "Detalles de la Licencia",
+      "software": "Software",
+      "selectSoftware": "Seleccionar software",
+      "licenseKey": "Clave de Licencia",
+      "licenseType": "Tipo de Licencia",
+      "maxActivations": "Máximo de Activaciones",
+      "expirationDate": "Fecha de Expiración",
+      "notes": "Notas",
+      "save": "Guardar Licencia",
+      "cancel": "Cancelar"
+    },
+    "view": {
+      "title": "Clave de Licencia",
+      "warning": "Esta clave está cifrada y su acceso será registrado",
+      "licenseKey": "Clave de Licencia",
+      "copy": "Copiar al Portapapeles",
+      "copied": "¡Copiado!",
+      "close": "Cerrar"
+    },
+    "security": {
+      "warning": "Las claves de licencia están cifradas con AES-GCM",
+      "accessLogged": "Todo acceso a claves de licencia queda registrado en el sistema de auditoría"
+    }
+  },
+  "audit": {
+    "title": "Registros de Auditoría",
+    "subtitle": "Actividad del sistema y registros de acceso",
+    "filters": {
+      "user": "Usuario",
+      "allUsers": "Todos los usuarios",
+      "action": "Acción",
+      "allActions": "Todas las acciones",
+      "resourceType": "Tipo de Recurso",
+      "allResources": "Todos los recursos",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "apply": "Aplicar Filtros",
+      "clear": "Limpiar Filtros"
+    },
+    "actions": {
+      "login": "Inicio de Sesión",
+      "logout": "Cierre de Sesión",
+      "create": "Crear",
+      "update": "Actualizar",
+      "delete": "Eliminar",
+      "download": "Descargar",
+      "view_license": "Ver Licencia"
+    },
+    "resources": {
+      "software": "Software",
+      "installer": "Instalador",
+      "license": "Licencia",
+      "user": "Usuario"
+    },
+    "list": {
+      "timestamp": "Fecha/Hora",
+      "user": "Usuario",
+      "action": "Acción",
+      "resource": "Recurso",
+      "ipAddress": "Dirección IP",
+      "details": "Detalles",
+      "noLogs": "No se encontraron registros de auditoría",
+      "anonymous": "Anónimo"
+    }
+  },
+  "softwareDetail": {
+    "title": "Detalles del Software",
+    "backToList": "Volver al Listado",
+    "edit": "Editar Software",
+    "delete": "Eliminar Software",
+    "tabs": {
+      "overview": "Información General",
+      "installers": "Instaladores",
+      "licenses": "Licencias"
+    },
+    "overview": {
+      "vendor": "Proveedor",
+      "category": "Categoría",
+      "website": "Sitio Web",
+      "createdBy": "Creado Por",
+      "createdAt": "Fecha de Creación",
+      "description": "Descripción",
+      "noDescription": "No hay descripción disponible"
+    },
+    "installers": {
+      "title": "Instaladores Disponibles",
+      "noInstallers": "No hay instaladores disponibles para este software",
+      "uploadFirst": "Sube el primer instalador",
+      "version": "Versión",
+      "size": "Tamaño",
+      "platform": "Plataforma",
+      "downloads": "Descargas",
+      "uploadDate": "Fecha de Subida",
+      "download": "Descargar"
+    },
+    "licenses": {
+      "title": "Licencias",
+      "noLicenses": "No hay licencias configuradas",
+      "addLicense": "Añadir Licencia",
+      "adminOnly": "Solo los administradores pueden ver las licencias"
+    }
+  }
+}

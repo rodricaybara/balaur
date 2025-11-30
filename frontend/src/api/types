@@ -1,0 +1,21 @@
+/**
+ * Re-exporta tipos de la API generada por OpenAPI
+ * Centraliza imports para mejor mantenibilidad
+ */
+
+export type {
+  InstallerResponse,
+  InstallerCreateRequest,
+  ListInstallers200Response,
+  ListSoftwareInstallers200Response,
+} from './api/installers-api';
+
+export type {
+  SoftwareResponse,
+  SoftwareCreateRequest,
+} from './api/software-api';
+
+// Otros tipos según necesites
+export type { AuditLogResponse } from './api/audit-api';
+export type { LicenseResponse } from './api/licenses-api';
+export type { UserResponse } from './api/users-api';

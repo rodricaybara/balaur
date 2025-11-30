@@ -1,0 +1,1620 @@
+openapi: 3.0.3
+info:
+  title: Balaur SMS API
+  version: 1.0.0
+  description: |
+    Software Management System para gestión, distribución y control de software universitario.
+    
+    ## Características
+    - Gestión de software con múltiples versiones
+    - Sistema de archivos con FTP y validación SHA-256
+    - Licencias cifradas con AES-GCM
+    - RBAC con 4 roles (Admin, Gestor, Usuario, Invitado)
+    - Auditoría completa de operaciones
+    - FTP Watcher automático para procesamiento de archivos
+    
+    ## Autenticación
+    La API utiliza JWT (Bearer tokens) con dos tipos de token:
+    - **Access Token**: Válido 15 minutos
+    - **Refresh Token**: Válido 7 días
+    
+    ## Flujo de subida de instaladores
+    1. Usuario sube archivo vía FTP a `/inbox/pending/`
+    2. FTP Watcher procesa automáticamente (cada 5 min):
+       - Valida extensión y tamaño
+       - Calcula SHA-256
+       - Mueve a `/inbox/processing/` (si válido) o `/quarantine/` (si inválido)
+    3. Usuario registra instalador vía `POST /installers` con el SHA-256
+    4. Sistema organiza archivo en `/repository/software_id/version/`
+    
+  contact:
+    name: IT Department
+    email: it@university.edu
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://balaur.university.edu/api/v1
+    description: Production server
+  - url: https://balaur.university.edu/api/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: Autenticación y gestión de tokens JWT
+  - name: Users
+    description: Gestión de usuarios (solo administradores)
+  - name: Software
+    description: CRUD de software y versiones
+  - name: Installers
+    description: Gestión de archivos instaladores
+  - name: Licenses
+    description: Gestión de licencias (solo administradores)
+  - name: Audit
+    description: Consulta de logs de auditoría
+  - name: System
+    description: Endpoints del sistema
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================================
+  # SYSTEM
+  # ============================================================================
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Endpoint para verificar estado del servicio
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  app:
+                    type: string
+                  version:
+                    type: string
+                  environment:
+                    type: string
+
+  /system/watcher-stats:
+    get:
+      tags: [System]
+      summary: Estadísticas del FTP Watcher
+      description: |
+        Obtiene estadísticas del FTP Watcher (solo administradores).
+        Muestra archivos pendientes, en procesamiento y en cuarentena.
+      operationId: getWatcherStats
+      responses:
+        '200':
+          description: Estadísticas del watcher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatcherStatsResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /system/pending-files:
+    get:
+      tags: [System]
+      summary: Listar archivos pending
+      operationId: listPendingFiles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de archivos pending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingFileResponse'
+
+  /system/processing-files:
+    get:
+      tags: [System]
+      summary: Listar archivos processing
+      operationId: listProcessingFiles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de archivos processing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcessingFileResponse'
+
+  # ============================================================================
+  # AUTHENTICATION
+  # ============================================================================
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Iniciar sesión
+      description: |
+        Autentica usuario contra el directorio corporativo (LDAP/AD) y devuelve tokens JWT.
+        Si el usuario no existe localmente, se crea automáticamente con rol "Guest" por defecto.
+        
+        **Flujo:**
+        1. Valida credenciales contra LDAP/AD
+        2. Si usuario no existe en BD local, lo crea con rol Guest
+        3. Si existe, usa rol asignado en BD local
+        4. Genera par de tokens JWT
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Renovar access token
+      description: Genera nuevo access token usando refresh token válido
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Obtener información del usuario actual
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Datos del usuario autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================================================
+  # USERS
+  # ============================================================================
+  /users:
+    get:
+      tags: [Users]
+      summary: Listar usuarios
+      description: Solo administradores. Soporta paginación y filtros.
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: search
+          in: query
+          description: Búsqueda por username o email
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Users]
+      summary: Crear usuario manualmente
+      description: |
+        Solo administradores. Crea usuario local (no sincronizado con LDAP).
+        Para usuarios LDAP, se crean automáticamente en el primer login.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Username o email ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      operationId: getUser
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: Actualizar usuario
+      description: |
+        Solo administradores. Permite cambiar rol y estado.
+        No puede desactivarse a sí mismo.
+      operationId: updateUser
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: No puede desactivarse a sí mismo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Users]
+      summary: Eliminar usuario
+      description: |
+        Solo administradores. Soft delete (marca como inactivo).
+        No puede eliminarse a sí mismo.
+      operationId: deleteUser
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '204':
+          description: Usuario eliminado
+        '400':
+          description: No puede eliminarse a sí mismo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # SOFTWARE
+  # ============================================================================
+  /software:
+    get:
+      tags: [Software]
+      summary: Listar software
+      description: Lista software disponible con filtros y paginación.
+      operationId: listSoftware
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filtrar por categoría
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Búsqueda por nombre o descripción
+        - name: vendor
+          in: query
+          schema:
+            type: string
+          description: Filtrar por proveedor
+      responses:
+        '200':
+          description: Lista de software
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftwareListResponse'
+
+    post:
+      tags: [Software]
+      summary: Crear software
+      description: Solo Gestor y Administrador.
+      operationId: createSoftware
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SoftwareCreateRequest'
+      responses:
+        '201':
+          description: Software creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftwareResponse'
+        '400':
+          description: Software ya existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /software/{software_id}:
+    get:
+      tags: [Software]
+      summary: Obtener software por ID
+      description: |
+        Detalles del software con lista de instaladores.
+        Licencias solo visibles para administradores.
+      operationId: getSoftware
+      parameters:
+        - $ref: '#/components/parameters/SoftwareIdParam'
+      responses:
+        '200':
+          description: Detalles del software
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftwareDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Software]
+      summary: Actualizar software
+      description: Solo Gestor y Administrador.
+      operationId: updateSoftware
+      parameters:
+        - $ref: '#/components/parameters/SoftwareIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SoftwareUpdateRequest'
+      responses:
+        '200':
+          description: Software actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SoftwareResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Software]
+      summary: Eliminar software
+      description: |
+        Solo Administrador. Elimina software y todos sus instaladores asociados (cascade).
+        Los archivos físicos en FTP se eliminan también.
+      operationId: deleteSoftware
+      parameters:
+        - $ref: '#/components/parameters/SoftwareIdParam'
+      responses:
+        '204':
+          description: Software eliminado
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /software/{software_id}/installers:
+    get:
+      tags: [Software, Installers]
+      summary: Listar instaladores de un software
+      operationId: listSoftwareInstallers
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SoftwareIdParam'
+      responses:
+        '200':
+          description: Lista de instaladores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InstallerResponse'
+                  total:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # INSTALLERS
+  # ============================================================================
+  /installers:
+    post:
+      tags: [Installers]
+      summary: Registrar instalador
+      description: |
+        Registra un instalador después de subirlo vía FTP.
+        Solo Gestor y Administrador.
+        
+        **Flujo completo:**
+        1. Usuario sube archivo a FTP inbox/pending/
+        2. Watcher procesa automáticamente (valida, calcula SHA-256)
+        3. Watcher mueve a inbox/processing/ si es válido
+        4. Usuario obtiene SHA-256 del archivo procesado
+        5. Usuario llama este endpoint con el SHA-256
+        6. Sistema busca archivo en processing/ por filename
+        7. Sistema mueve archivo a repository/software_id/version/
+        8. Sistema registra en base de datos
+        
+        **IMPORTANTE:** El archivo debe estar en inbox/processing/ antes de llamar este endpoint.
+      operationId: registerInstaller
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallerCreateRequest'
+      responses:
+        '201':
+          description: Instalador registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallerResponse'
+        '400':
+          description: Hash duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Archivo no encontrado en processing o software no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    get:
+      tags: [Installers]
+      summary: Listar todos los installers
+      description: Retorna una lista completa de installers registrados.
+      operationId: listInstallers
+      responses:
+        '200':
+          description: Lista de installers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InstallerResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /installers/{installer_id}:
+    get:
+      tags: [Installers]
+      summary: Obtener información del instalador
+      operationId: getInstaller
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/InstallerIdParam'
+      responses:
+        '200':
+          description: Datos del instalador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallerResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Installers]
+      summary: Eliminar instalador
+      description: |
+        Solo Administrador. Elimina archivo del FTP y registro de BD.
+        El archivo físico se elimina permanentemente.
+      operationId: deleteInstaller
+      parameters:
+        - $ref: '#/components/parameters/InstallerIdParam'
+      responses:
+        '204':
+          description: Instalador eliminado
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /installers/{installer_id}/download:
+    get:
+      tags: [Installers]
+      summary: Descargar instalador
+      description: |
+        Descarga archivo mediante streaming (no carga en memoria completa).
+        Usuarios con rol "Usuario" o superior pueden descargar.
+        Registra descarga en audit log automáticamente.
+        Incrementa contador de descargas.
+      operationId: downloadInstaller
+      parameters:
+        - $ref: '#/components/parameters/InstallerIdParam'
+      responses:
+        '200':
+          description: Archivo binario
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'attachment; filename="installer.exe"'
+            Content-Length:
+              schema:
+                type: integer
+            X-SHA256:
+              schema:
+                type: string
+              description: Hash SHA-256 del archivo
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # LICENSES
+  # ============================================================================
+  /licenses:
+    get:
+      tags: [Licenses]
+      summary: Listar licencias
+      description: |
+        Solo Administrador. Claves cifradas NO se devuelven en listado por seguridad.
+        Use GET individual para obtener clave descifrada.
+      operationId: listLicenses
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: software_id
+          in: query
+          schema:
+            type: integer
+          description: Filtrar por software
+      responses:
+        '200':
+          description: Lista de licencias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Licenses]
+      summary: Crear licencia
+      description: |
+        Solo Administrador. Cifra automáticamente la clave con AES-GCM.
+        La clave se almacena cifrada y solo se descifra en GET individual.
+      operationId: createLicense
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LicenseCreateRequest'
+      responses:
+        '201':
+          description: Licencia creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Software no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /licenses/{license_id}:
+    get:
+      tags: [Licenses]
+      summary: Obtener licencia con clave descifrada
+      description: |
+        Solo Administrador. Devuelve clave descifrada.
+        **IMPORTANTE:** Este acceso se registra en audit log automáticamente.
+      operationId: getLicense
+      parameters:
+        - $ref: '#/components/parameters/LicenseIdParam'
+      responses:
+        '200':
+          description: Datos de la licencia con clave descifrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseDetailResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          description: Error al descifrar clave
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Licenses]
+      summary: Actualizar licencia
+      description: |
+        Solo Administrador.
+        Si se proporciona nueva clave, se cifra automáticamente.
+      operationId: updateLicense
+      parameters:
+        - $ref: '#/components/parameters/LicenseIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LicenseUpdateRequest'
+      responses:
+        '200':
+          description: Licencia actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Licenses]
+      summary: Eliminar licencia
+      description: |
+        Solo Administrador.
+        Eliminación permanente, la clave cifrada se pierde irrecuperablemente.
+      operationId: deleteLicense
+      parameters:
+        - $ref: '#/components/parameters/LicenseIdParam'
+      responses:
+        '204':
+          description: Licencia eliminada
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================================================
+  # AUDIT
+  # ============================================================================
+  /audit/logs:
+    get:
+      tags: [Audit]
+      summary: Consultar logs de auditoría
+      description: |
+        Solo Administrador. Soporta filtros y paginación.
+        Los logs se registran automáticamente por el middleware.
+      operationId: getAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+          description: Filtrar por usuario
+        - name: action
+          in: query
+          schema:
+            $ref: '#/components/schemas/AuditAction'
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+          description: Tipo de recurso (software, installer, license)
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Lista de logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtenido del endpoint /auth/login
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Número de página (1-indexed)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSizeParam:
+      name: page_size
+      in: query
+      description: Elementos por página
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    UserIdParam:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+    SoftwareIdParam:
+      name: software_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+    InstallerIdParam:
+      name: installer_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+    LicenseIdParam:
+      name: license_id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+    # ========================================================================
+    # ENUMS
+    # ========================================================================
+    UserRole:
+      type: string
+      enum: [admin, manager, user, guest]
+      description: |
+        - **admin**: Acceso total, gestión usuarios, licencias
+        - **manager**: Gestor de software, CRUD software e instaladores
+        - **user**: Consulta y descarga instaladores
+        - **guest**: Solo lectura, sin descargas
+
+    LicenseType:
+      type: string
+      enum: [perpetual, subscription, volume, oem, educational, trial]
+
+    AuditAction:
+      type: string
+      enum: [login, logout, create, update, delete, download, view_license]
+
+    # ========================================================================
+    # AUTHENTICATION
+    # ========================================================================
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 100
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: bearer
+        expires_in:
+          type: integer
+          description: Segundos hasta expiración del access token
+          example: 900
+
+    # ========================================================================
+    # USERS
+    # ========================================================================
+    UserResponse:
+      type: object
+      required:
+        - id
+        - username
+        - email
+        - role
+        - is_active
+        - created_at
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+        is_ldap_user:
+          type: boolean
+          description: Indica si es usuario sincronizado desde LDAP
+        last_login:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserCreateRequest:
+      type: object
+      required:
+        - username
+        - email
+        - role
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        password:
+          type: string
+          format: password
+          description: Solo para usuarios locales (no LDAP)
+          nullable: true
+          minLength: 8
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        is_active:
+          type: boolean
+
+    UserListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        pages:
+          type: integer
+
+    # ========================================================================
+    # SOFTWARE
+    # ========================================================================
+    SoftwareResponse:
+      type: object
+      required:
+        - id
+        - name
+        - vendor
+        - category
+        - created_at
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        vendor:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        created_by:
+          type: integer
+          description: ID del usuario creador
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SoftwareDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/SoftwareResponse'
+        - type: object
+          properties:
+            installers:
+              type: array
+              items:
+                $ref: '#/components/schemas/InstallerResponse'
+            licenses:
+              type: array
+              items:
+                $ref: '#/components/schemas/LicenseResponse'
+              nullable: true
+              description: Solo visible para administradores
+
+    SoftwareCreateRequest:
+      type: object
+      required:
+        - name
+        - vendor
+        - category
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        vendor:
+          type: string
+          maxLength: 200
+        category:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+
+    SoftwareUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        vendor:
+          type: string
+          maxLength: 200
+        category:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+
+    SoftwareListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SoftwareResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        pages:
+          type: integer
+
+    # ========================================================================
+    # INSTALLERS
+    # ========================================================================
+    InstallerResponse:
+      type: object
+      required:
+        - id
+        - software_id
+        - version
+        - filename
+        - file_size
+        - sha256_hash
+        - created_at
+      properties:
+        id:
+          type: integer
+        software_id:
+          type: integer
+        version:
+          type: string
+          description: Versión del software (ej. "2.5.1", "2024.1")
+        filename:
+          type: string
+        file_size:
+          type: integer
+          description: Tamaño en bytes
+        file_size_mb:
+          type: number
+          format: double
+          description: Tamaño en MB (computed field)
+          readOnly: true
+        file_size_gb:
+          type: number
+          format: double
+          description: Tamaño en GB (computed field)
+          readOnly: true
+        sha256_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        architecture:
+          type: string
+          nullable: true
+          description: x64, x86, arm64, universal
+        platform:
+          type: string
+          nullable: true
+          description: Windows, Linux, macOS
+        notes:
+          type: string
+          nullable: true
+        download_count:
+          type: integer
+          default: 0
+        uploaded_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    InstallerCreateRequest:
+      type: object
+      required:
+        - software_id
+        - version
+        - filename
+        - file_size
+        - sha256_hash
+      properties:
+        software_id:
+          type: integer
+        version:
+          type: string
+          minLength: 1
+          maxLength: 50
+        filename:
+          type: string
+          description: Nombre del archivo en inbox/processing
+        file_size:
+          type: integer
+          minimum: 1
+          description: Tamaño en bytes
+        sha256_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        architecture:
+          type: string
+          nullable: true
+        platform:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    # ========================================================================
+    # LICENSES
+    # ========================================================================
+    LicenseResponse:
+      type: object
+      required:
+        - id
+        - software_id
+        - license_type
+        - created_at
+      properties:
+        id:
+          type: integer
+        software_id:
+          type: integer
+        license_type:
+          $ref: '#/components/schemas/LicenseType'
+        max_activations:
+          type: integer
+          nullable: true
+        expiration_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LicenseDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/LicenseResponse'
+        - type: object
+          required:
+            - license_key
+          properties:
+            license_key:
+              type: string
+              description: Clave descifrada (solo en GET individual)
+
+    LicenseCreateRequest:
+      type: object
+      required:
+        - software_id
+        - license_type
+        - license_key
+      properties:
+        software_id:
+          type: integer
+        license_type:
+          $ref: '#/components/schemas/LicenseType'
+        license_key:
+          type: string
+          description: Será cifrada con AES-GCM
+        max_activations:
+          type: integer
+          nullable: true
+        expiration_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    LicenseUpdateRequest:
+      type: object
+      properties:
+        license_type:
+          $ref: '#/components/schemas/LicenseType'
+        license_key:
+          type: string
+          description: Nueva clave (será cifrada)
+          minLength: 1
+        max_activations:
+          type: integer
+          nullable: true
+        expiration_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    LicenseListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LicenseResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        pages:
+          type: integer
+
+    # ========================================================================
+    # AUDIT
+    # ========================================================================
+    AuditLogResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - action
+        - timestamp
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+          nullable: true
+        username:
+          type: string
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        resource_type:
+          type: string
+          nullable: true
+          description: software, installer, license, user
+        resource_id:
+          type: integer
+          nullable: true
+        ip_address:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+          nullable: true
+        details:
+          type: object
+          nullable: true
+          description: JSON con información adicional del evento
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditLogListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        pages:
+          type: integer
+
+    # ========================================================================
+    # SYSTEM FILES / WATCHER SCHEMAS
+    # ========================================================================
+    PendingFileResponse:
+      type: object
+      required:
+        - filename
+        - size
+        - upload_date
+      properties:
+        filename:
+          type: string
+        size:
+          type: integer
+        upload_date:
+          type: string
+          description: Fecha de subida (ISO format)
+        size_mb:
+          type: number
+          format: double
+        size_gb:
+          type: number
+          format: double
+
+    ProcessingFileResponse:
+      type: object
+      required:
+        - filename
+        - size
+        - sha256
+        - validated_date
+      properties:
+        filename:
+          type: string
+        size:
+          type: integer
+        sha256:
+          type: string
+        validated_date:
+          type: string
+          description: Fecha de validación (ISO format)
+        size_mb:
+          type: number
+          format: double
+        size_gb:
+          type: number
+          format: double
+
+    WatcherStatsResponse:
+      type: object
+      required:
+        - pending
+        - processing
+        - quarantine
+        - is_running
+        - interval_seconds
+      properties:
+        pending:
+          type: integer
+          description: Archivos en inbox/pending
+        processing:
+          type: integer
+          description: Archivos en inbox/processing
+        quarantine:
+          type: integer
+          description: Archivos en quarantine
+        is_running:
+          type: boolean
+          description: Estado del watcher
+        interval_seconds:
+          type: integer
+          description: Intervalo de ejecución en segundos
+        last_run:
+          type: string
+          nullable: true
+          description: Última ejecución (ISO)
+        next_run:
+          type: string
+          nullable: true
+          description: Próxima ejecución (ISO)
+        last_run_stats:
+          type: object
+          additionalProperties: {}
+          description: Estadísticas de la última ejecución
+        recent_errors:
+          type: array
+          items:
+            type: string
+        paths:
+          type: object
+          additionalProperties: {}
+          description: Rutas configuradas
+
+    # ========================================================================
+    # ERROR RESPONSES
+    # ========================================================================
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Mensaje de error legible
+        error_code:
+          type: string
+          nullable: true
+          description: Código de error interno
+        timestamp:
+          type: string
+          format: date-time
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                description: Ubicación del error (path en el request)
+              msg:
+                type: string
+                description: Mensaje de error
+              type:
+                type: string
+                description: Tipo de error de validación
+
+  responses:
+    Unauthorized:
+      description: No autenticado o token inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Could not validate credentials"
+            error_code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: No tiene permisos para realizar esta acción
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Insufficient permissions. Required role: admin"
+            error_code: "FORBIDDEN"
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Software with id 123 not found"
+            error_code: "NOT_FOUND"
+
+    ValidationError:
+      description: Error de validación en los datos enviados
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          example:
+            detail:
+              - loc: ["body", "email"]
+                msg: "value is not a valid email address"
+                type: "value_error.email"
+              - loc: ["body", "version"]
+                msg: "field required"
+                type: "value_error.missing"

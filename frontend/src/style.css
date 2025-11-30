@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables para branding runtime */
+:root {
+  /* Primary colors (pueden ser sobrescritas por config.json) */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  
+  /* Secondary colors */
+  --color-secondary-50: #f8fafc;
+  --color-secondary-100: #f1f5f9;
+  --color-secondary-200: #e2e8f0;
+  --color-secondary-300: #cbd5e1;
+  --color-secondary-400: #94a3b8;
+  --color-secondary-500: #64748b;
+  --color-secondary-600: #475569;
+  --color-secondary-700: #334155;
+  --color-secondary-800: #1e293b;
+  --color-secondary-900: #0f172a;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: var(--color-primary-600);
+    @apply text-white px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-700);
+  }
+  
+  .btn-secondary {
+    background-color: var(--color-secondary-200);
+    color: var(--color-secondary-800);
+    @apply px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-secondary-300);
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 outline-none transition-all;
+    border-color: var(--color-secondary-300);
+  }
+  
+  .input-field:focus {
+    ring-color: var(--color-primary-500);
+    @apply border-transparent;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+  }
+  
+  .table-container {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden;
+  }
+  
+  /* Clases con colores primarios dinámicos */
+  .bg-primary-50 { background-color: var(--color-primary-50); }
+  .bg-primary-100 { background-color: var(--color-primary-100); }
+  .bg-primary-600 { background-color: var(--color-primary-600); }
+  .bg-primary-700 { background-color: var(--color-primary-700); }
+  .bg-primary-800 { background-color: var(--color-primary-800); }
+  
+  .text-primary-100 { color: var(--color-primary-100); }
+  .text-primary-600 { color: var(--color-primary-600); }
+  .text-primary-700 { color: var(--color-primary-700); }
+  
+  .border-primary-300 { border-color: var(--color-primary-300); }
+  
+  .hover\:bg-primary-700:hover { background-color: var(--color-primary-700); }
+  .hover\:text-primary-600:hover { color: var(--color-primary-600); }
+  .hover\:text-primary-700:hover { color: var(--color-primary-700); }
+  
+  /* Login background gradient con colores dinámicos */
+  .login-gradient-bg {
+    background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-800));
+  }
+}

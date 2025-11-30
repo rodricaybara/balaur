@@ -1,0 +1,382 @@
+{
+  "app": {
+    "name": "Balaur SMS",
+    "fullName": "Software Management System"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "viewDetails": "View Details",
+    "noResults": "No results found",
+    "items": "items",
+    "page": "Page",
+    "of": "of",
+    "showing": "Showing",
+    "to": "to",
+    "results": "results",
+    "status": "Status"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "software": "Software",
+    "installers": "Installers",
+    "licenses": "Licenses",
+    "users": "Users",
+    "audit": "Audit Logs",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign In",
+      "subtitle": "Software Management System",
+      "username": "Username",
+      "password": "Password",
+      "usernamePlaceholder": "your.username",
+      "passwordPlaceholder": "••••••••",
+      "signingIn": "Signing in...",
+      "signIn": "Sign In",
+      "error": "Authentication Error",
+      "helpText": "Use your corporate credentials (LDAP/AD) to access the system.",
+      "copyright": "University. All rights reserved."
+    },
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "unauthorized": "You don't have permission to access this resource.",
+    "invalidCredentials": "Invalid username or password."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Control Panel - Software Management System",
+    "welcome": "Welcome, {name}",
+    "stats": {
+      "totalSoftware": "Total Software",
+      "installers": "Installers",
+      "users": "Users",
+      "licenses": "Licenses",
+      "availableForDownload": "Available for download",
+      "filesInRepository": "Files in repository",
+      "registeredUsers": "Registered users",
+      "activeLicenses": "Active licenses"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "exploreSoftware": {
+        "name": "Explore Software",
+        "description": "Search and download installers"
+      },
+      "manageInstallers": {
+        "name": "Manage Installers",
+        "description": "Upload and organize installers"
+      },
+      "manageUsers": {
+        "name": "Manage Users",
+        "description": "Administer system users"
+      },
+      "manageLicenses": {
+        "name": "Manage Licenses",
+        "description": "View and manage licenses"
+      }
+    },
+    "roleInfo": {
+      "yourRole": "Your role:",
+      "guestNote": "You can only view information, not download."
+    }
+  },
+  "software": {
+    "title": "Software Catalog",
+    "newSoftware": "New Software",
+    "availableApps": "{count} applications available",
+    "searchPlaceholder": "Search by name or description...",
+    "category": "Category",
+    "allCategories": "All categories",
+    "vendor": "Vendor",
+    "allVendors": "All vendors",
+    "clearFilters": "Clear filters",
+    "viewMode": {
+      "grid": "Grid view",
+      "list": "List view"
+    },
+    "noSoftware": "No software found",
+    "changeFilters": "Try changing the search filters",
+    "noSoftwareInSystem": "No software registered in the system",
+    "website": "Website",
+    "visit": "Visit",
+    "loading": "Loading software...",
+    "errorLoading": "Error loading software"
+  },
+  "installers": {
+    "title": "Installers Management",
+    "subtitle": "Upload and manage software installers",
+    "uploadNew": "Upload Installer",
+    "tabs": {
+      "pending": "Pending ({count})",
+      "processing": "Processing ({count})",
+      "repository": "Repository"
+    },
+    "upload": {
+      "title": "Upload Installer",
+      "instructions": "Upload your installer file via FTP or drag and drop here",
+      "ftpInstructions": "FTP Upload Instructions",
+      "ftpServer": "FTP Server",
+      "ftpPath": "Upload Path",
+      "ftpCredentials": "Use your corporate credentials",
+      "dragDrop": "Or drag and drop file here",
+      "selectFile": "Select File",
+      "uploading": "Uploading...",
+      "validating": "Validating file...",
+      "success": "File uploaded successfully",
+      "error": "Error uploading file"
+    },
+    "register": {
+      "title": "Register Installer",
+      "software": "Software",
+      "selectSoftware": "Select software",
+      "version": "Version",
+      "versionPlaceholder": "e.g., 2.5.1",
+      "architecture": "Architecture",
+      "platform": "Platform",
+      "notes": "Notes",
+      "notesPlaceholder": "Installation notes or requirements",
+      "filename": "Filename",
+      "filesize": "File Size",
+      "sha256": "SHA-256",
+      "register": "Register Installer",
+      "registering": "Registering..."
+    },
+    "list": {
+      "name": "Name",
+      "version": "Version",
+      "size": "Size",
+      "architecture": "Architecture",
+      "platform": "Platform",
+      "downloads": "Downloads",
+      "uploadedBy": "Uploaded By",
+      "uploadDate": "Upload Date",
+      "actions": "Actions",
+      "download": "Download",
+      "delete": "Delete",
+      "noInstallers": "No installers available",
+      "uploadFirst": "Upload your first installer to get started"
+    },
+    "processing": {
+      "title": "Files in Processing",
+      "description": "These files have been validated and are ready to be registered",
+      "noFiles": "No files in processing",
+      "waitingFiles": "Files are automatically processed every 5 minutes"
+    },
+    "pending": {
+      "title": "Pending Files",
+      "description": "These files are waiting to be validated by the FTP Watcher",
+      "noFiles": "No pending files",
+      "uploadInfo": "Upload files via FTP to {path}"
+    },
+    "watcher": {
+      "title": "FTP Watcher Status",
+      "running": "Running",
+      "stopped": "Stopped",
+      "interval": "Check interval: {seconds}s",
+      "lastCheck": "Last check: {time}"
+    }
+  },
+  "errors": {
+    "forbidden": {
+      "title": "Access Denied",
+      "message": "You don't have permission to access this page",
+      "backToDashboard": "Back to Dashboard"
+    },
+    "notFound": {
+      "title": "Page Not Found",
+      "message": "The page you're looking for doesn't exist",
+      "backToDashboard": "Back to Dashboard"
+    },
+    "network": "Network error. Please check your connection.",
+    "unknown": "An unknown error occurred."
+  },
+  "users": {
+    "title": "Users Management",
+    "subtitle": "Manage system users and permissions",
+    "newUser": "New User",
+    "list": {
+      "username": "Username",
+      "email": "Email",
+      "fullName": "Full Name",
+      "role": "Role",
+      "status": "Status",
+      "lastLogin": "Last Login",
+      "actions": "Actions",
+      "active": "Active",
+      "inactive": "Inactive",
+      "edit": "Edit",
+      "delete": "Delete",
+      "noUsers": "No users found",
+      "never": "Never"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "manager": "Manager",
+      "user": "User",
+      "guest": "Guest"
+    },
+    "form": {
+      "title": "User Details",
+      "username": "Username",
+      "email": "Email",
+      "fullName": "Full Name",
+      "role": "Role",
+      "password": "Password",
+      "isActive": "Active",
+      "isLdapUser": "LDAP User",
+      "save": "Save User",
+      "cancel": "Cancel"
+    },
+    "delete": {
+      "title": "Delete User",
+      "message": "Are you sure you want to delete this user?",
+      "cannotDeleteSelf": "You cannot delete your own account",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "licenses": {
+    "title": "Licenses Management",
+    "subtitle": "Manage software licenses securely",
+    "newLicense": "New License",
+    "list": {
+      "software": "Software",
+      "type": "Type",
+      "maxActivations": "Max Activations",
+      "expirationDate": "Expiration Date",
+      "actions": "Actions",
+      "view": "View Key",
+      "edit": "Edit",
+      "delete": "Delete",
+      "noLicenses": "No licenses found",
+      "unlimited": "Unlimited",
+      "noExpiration": "No expiration"
+    },
+    "types": {
+      "perpetual": "Perpetual",
+      "subscription": "Subscription",
+      "volume": "Volume",
+      "oem": "OEM",
+      "educational": "Educational",
+      "trial": "Trial"
+    },
+    "form": {
+      "title": "License Details",
+      "software": "Software",
+      "selectSoftware": "Select software",
+      "licenseKey": "License Key",
+      "licenseType": "License Type",
+      "maxActivations": "Max Activations",
+      "expirationDate": "Expiration Date",
+      "notes": "Notes",
+      "save": "Save License",
+      "cancel": "Cancel"
+    },
+    "view": {
+      "title": "License Key",
+      "warning": "This key is encrypted and will be logged",
+      "licenseKey": "License Key",
+      "copy": "Copy to Clipboard",
+      "copied": "Copied!",
+      "close": "Close"
+    },
+    "security": {
+      "warning": "License keys are encrypted with AES-GCM",
+      "accessLogged": "All access to license keys is logged in the audit system"
+    }
+  },
+  "audit": {
+    "title": "Audit Logs",
+    "subtitle": "System activity and access logs",
+    "filters": {
+      "user": "User",
+      "allUsers": "All users",
+      "action": "Action",
+      "allActions": "All actions",
+      "resourceType": "Resource Type",
+      "allResources": "All resources",
+      "dateFrom": "From Date",
+      "dateTo": "To Date",
+      "apply": "Apply Filters",
+      "clear": "Clear Filters"
+    },
+    "actions": {
+      "login": "Login",
+      "logout": "Logout",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "download": "Download",
+      "view_license": "View License"
+    },
+    "resources": {
+      "software": "Software",
+      "installer": "Installer",
+      "license": "License",
+      "user": "User"
+    },
+    "list": {
+      "timestamp": "Timestamp",
+      "user": "User",
+      "action": "Action",
+      "resource": "Resource",
+      "ipAddress": "IP Address",
+      "details": "Details",
+      "noLogs": "No audit logs found",
+      "anonymous": "Anonymous"
+    }
+  },
+  "softwareDetail": {
+    "title": "Software Details",
+    "backToList": "Back to List",
+    "edit": "Edit Software",
+    "delete": "Delete Software",
+    "tabs": {
+      "overview": "Overview",
+      "installers": "Installers",
+      "licenses": "Licenses"
+    },
+    "overview": {
+      "vendor": "Vendor",
+      "category": "Category",
+      "website": "Website",
+      "createdBy": "Created By",
+      "createdAt": "Created At",
+      "description": "Description",
+      "noDescription": "No description available"
+    },
+    "installers": {
+      "title": "Available Installers",
+      "noInstallers": "No installers available for this software",
+      "uploadFirst": "Upload the first installer",
+      "version": "Version",
+      "size": "Size",
+      "platform": "Platform",
+      "downloads": "Downloads",
+      "uploadDate": "Upload Date",
+      "download": "Download"
+    },
+    "licenses": {
+      "title": "Licenses",
+      "noLicenses": "No licenses configured",
+      "addLicense": "Add License",
+      "adminOnly": "Only administrators can view licenses"
+    }
+  }
+}
