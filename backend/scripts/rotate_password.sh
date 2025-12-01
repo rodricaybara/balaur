@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Rotate passwords for Balaur SMS
-# Location: /opt/balaur-sms/backend/scripts/rotate_password.sh
+# Location: /opt/balaur/backend/scripts/rotate_password.sh
 # Usage: sudo ./rotate_password.sh [db|ftp|all]
 #
 
@@ -13,9 +13,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-SECRETS_DIR="/opt/balaur-sms/secrets"
+SECRETS_DIR="/opt/balaur/secrets"
 SECRETS_FILE="${SECRETS_DIR}/credentials.vault"
-ENV_FILE="/opt/balaur-sms/backend/.env"
+ENV_FILE="/opt/balaur/backend/.env"
 
 # Verificar permisos
 if [ "$EUID" -ne 0 ]; then 
