@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # View encrypted secrets vault
-# Location: /opt/balaur-sms/backend/scripts/view_secrets.sh
+# Location: /opt/balaur/backend/scripts/view_secrets.sh
 # Usage: sudo ./view_secrets.sh
 #
 
 set -e
 
-SECRETS_FILE="/opt/balaur-sms/secrets/credentials.vault"
+SECRETS_FILE="/opt/balaur/secrets/credentials.vault"
 
 # Colores
 GREEN='\033[0;32m'
