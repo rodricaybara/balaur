@@ -37,6 +37,10 @@ if __name__ == "__main__":
     print("=" * 70)
     print("Copy these values to your .env file:")
     print("=" * 70)
-    print(f"SECRET_KEY={generate_secret_key()}")
-    print(f"ENCRYPTION_KEY={generate_encryption_key()}")
+    # Generate once and reuse so printed values match the ones shown above
+    secret = generate_secret_key()
+    encryption = generate_encryption_key()
+
+    print(f"SECRET_KEY={secret}")
+    print(f"ENCRYPTION_KEY={encryption}")
     print()

@@ -47,10 +47,17 @@ LDAP_BIND_PASSWORD="ASK_YOUR_IT_DEPARTMENT"  # Este debe ser proporcionado por I
 echo -e "${YELLOW}Generating security keys...${NC}"
 
 # JWT Secret Key (64 bytes)
-SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(64))")
 
-# Encryption Key (Fernet format)
-ENCRYPTION_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+# Encryption Key (32 bytes = 64 hex characters)
+# Generate a 32-byte key and output as 64 hex chars (compatible with app expectation)
+ENCRYPTION_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+
+# Validate encryption key format
+if [[ ! $ENCRYPTION_KEY =~ ^[0-9a-fA-F]{64}$ ]]; then
+    echo -e "${RED}Error: ENCRYPTION_KEY must be 64 hex characters (32 bytes). Generated: ${ENCRYPTION_KEY}${NC}"
+    exit 1
+fi
 
 # ============================================
 # GUARDAR EN VAULT CIFRADO
