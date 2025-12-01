@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Script para gestionar secrets de Balaur SMS
-# Location: /opt/balaur-sms/backend/scripts/setup_secrets.sh
+# Location: /opt/balaur/backend/scripts/setup_secrets.sh
 #
 
 set -e
@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Directorio de secrets
-SECRETS_DIR="/opt/balaur-sms/secrets"
+SECRETS_DIR="/opt/balaur/secrets"
 SECRETS_FILE="${SECRETS_DIR}/credentials.vault"
 
 echo -e "${GREEN}=== Balaur SMS - Secrets Setup ===${NC}\n"
@@ -165,7 +165,7 @@ fi
 
 echo -e "\n${YELLOW}Creating .env file...${NC}"
 
-cat > /opt/balaur-sms/backend/.env << EOF
+cat > /opt/balaur/backend/.env << EOF
 # ============================================
 # BALAUR SMS - Backend Configuration
 # Generated: $(date '+%Y-%m-%d %H:%M:%S')
@@ -269,8 +269,8 @@ BACKUP_DIR=/var/backups/balaur
 BACKUP_RETENTION_DAYS=30
 EOF
 
-sudo chown balaur-app:balaur-app /opt/balaur-sms/backend/.env
-sudo chmod 600 /opt/balaur-sms/backend/.env
+sudo chown balaur-app:balaur-app /opt/balaur/backend/.env
+sudo chmod 600 /opt/balaur/backend/.env
 
 echo -e "${GREEN}✓ .env file created${NC}"
 
