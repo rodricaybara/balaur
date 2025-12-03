@@ -33,7 +33,10 @@ class Settings(BaseSettings):
     
     # CORS - Parse JSON string to list
     cors_origins: str = '["http://localhost:5173"]'
-    
+    cors_allow_credentials: bool = True
+    cors_allow_methods: list[str] = ["*"]
+    cors_allow_headers: list[str] = ["*"]
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
@@ -142,6 +145,12 @@ class Settings(BaseSettings):
     log_backup_count: int = 10
     audit_log_retention_days: int = 365
     
+    # ============================================
+    # PAGINATION
+    # ============================================
+    default_page_size: int = 20
+    max_page_size: int = 100 
+
     # ============================================
     # RATE LIMITING
     # ============================================
