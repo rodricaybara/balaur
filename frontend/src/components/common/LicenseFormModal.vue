@@ -59,7 +59,7 @@ watch(() => props.show, (show) => {
       software_id: props.license.software_id,
       license_key: '', // Don't show existing key for security
       license_type: props.license.license_type as any,
-      max_activations: props.license.max_activations,
+      max_activations: props.license.max_activations ?? null,
       expiration_date: props.license.expiration_date || '',
       notes: props.license.notes || '',
     };

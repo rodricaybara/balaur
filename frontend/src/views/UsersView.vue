@@ -8,6 +8,7 @@ import UserFormModal from '@/components/common/UserFormModal.vue';
 import DeleteConfirmModal from '@/components/common/DeleteConfirmModal.vue';
 import type { UserResponse } from '@/api/api';
 import { Users as UsersIcon, Plus, Edit, Trash2, Search, Filter } from 'lucide-vue-next';
+import { formatDate } from "@/utils/format";
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -83,11 +84,6 @@ const getRoleBadgeColor = (role: string) => {
     guest: 'bg-gray-100 text-gray-800',
   };
   return colors[role] || colors.guest;
-};
-
-const formatDate = (dateString: string | null): string => {
-  if (!dateString) return t('users.list.never');
-  return new Date(dateString).toLocaleDateString();
 };
 
 const clearFilters = () => {

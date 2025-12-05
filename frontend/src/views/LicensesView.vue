@@ -8,6 +8,7 @@ import ViewLicenseKeyModal from '@/components/common/ViewLicenseKeyModal.vue';
 import DeleteConfirmModal from '@/components/common/DeleteConfirmModal.vue';
 import type { LicenseResponse } from '@/api/api';
 import { Key, Plus, Eye, Edit, Trash2, Shield } from 'lucide-vue-next';
+import { formatDate } from "@/utils/format";
 
 const { t } = useI18n();
 const licensesStore = useLicensesStore();
@@ -70,11 +71,6 @@ const getLicenseTypeBadgeColor = (type: string) => {
     trial: 'bg-orange-100 text-orange-800',
   };
   return colors[type] || 'bg-gray-100 text-gray-800';
-};
-
-const formatDate = (dateString: string | null): string => {
-  if (!dateString) return t('licenses.list.noExpiration');
-  return new Date(dateString).toLocaleDateString();
 };
 
 onMounted(() => {

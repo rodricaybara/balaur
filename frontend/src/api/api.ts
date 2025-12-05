@@ -22,3 +22,5 @@ export * from './api/software-api';
 export * from './api/system-api';
 export * from './api/users-api';
 
+// Export all models (UserRole, LoginRequest, TokenResponse, etc.)
+export * from './models';

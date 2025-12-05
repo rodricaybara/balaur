@@ -51,11 +51,15 @@ const isLoading = computed(() => softwareStore.isLoading);
 const error = computed(() => softwareStore.error);
 
 const installers = computed(() => {
-  return software.value?.installers || [];
+  return ('installers' in (software.value ?? {}))
+    ? (software.value as any).installers
+    : [];
 });
 
 const licenses = computed(() => {
-  return software.value?.licenses || [];
+  return ('licenses' in (software.value ?? {}))
+    ? (software.value as any).licenses
+    : [];
 });
 
 const fetchSoftware = async () => {

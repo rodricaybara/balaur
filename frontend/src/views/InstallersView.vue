@@ -50,8 +50,12 @@ const fetchAllInstallers = async () => {
   for (const software of softwareStore.softwareList) {
     try {
       await softwareStore.fetchSoftwareDetail(software.id);
-      if (softwareStore.currentSoftware?.installers) {
-        allInstallers.push(...softwareStore.currentSoftware.installers);
+      if ('installers' in (softwareStore.currentSoftware ?? {})) {
+        allInstallers.push(
+          ...(('installers' in (softwareStore.currentSoftware ?? {}))
+              ? (softwareStore.currentSoftware as any).installers
+              : [])
+        );
       }
     } catch (err) {
       console.warn(`Failed to fetch installers for software ${software.id}`, err);

@@ -59,8 +59,8 @@ export const useInstallersStore = defineStore('installers', () => {
   const fetchAllInstallers = async () => {
     isLoading.value = true;
     try {
-      const response = await apiClient.installers.listInstallers;
-      installersList.value = response.data.items;
+      const { data } = await apiClient.installers.listInstallers();
+      installersList.value = data.items ?? [];
     } finally {
       isLoading.value = false;
     }

@@ -53,7 +53,7 @@ export default i18n;
 
 // Helper para cambiar idioma
 export const setLocale = (locale: LocaleCode) => {
-  i18n.global.locale.value = locale;
+  i18n.global.locale = locale;
   localStorage.setItem('locale', locale);
   
   // Actualizar atributo lang del HTML
@@ -62,5 +62,5 @@ export const setLocale = (locale: LocaleCode) => {
 
 // Helper para obtener idioma actual
 export const getCurrentLocale = (): LocaleCode => {
-  return i18n.global.locale.value;
+  return i18n.global.locale;
 };

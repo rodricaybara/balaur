@@ -156,13 +156,6 @@ router.afterEach((to) => {
 
 export default router;
 
-// Allow importing .vue files in TypeScript
-declare module '*.vue' {
-  import type { DefineComponent } from 'vue';
-  const component: DefineComponent<{}, {}, any>;
-  export default component;
-}
-
 // TypeScript: Extend RouteMeta
 declare module 'vue-router' {
   interface RouteMeta {

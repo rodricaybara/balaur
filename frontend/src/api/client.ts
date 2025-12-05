@@ -61,7 +61,7 @@ export const tokenStorage = {
 // AXIOS INSTANCE
 // ============================================================================
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://158.227.4.135:8000/api/v1';
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL,
@@ -257,16 +257,16 @@ export const handleApiError = (error: unknown): ApiError => {
 export interface PendingFile {
   filename: string;
   size: number;
-  size_mb: number;
-  size_gb: number;
+  size_mb?: number;
+  size_gb?: number;
   upload_date: string;
 }
 
 export interface ProcessingFile {
   filename: string;
   size: number;
-  size_mb: number;
-  size_gb: number;
+  size_mb?: number;
+  size_gb?: number;
   sha256: string;
   validated_date: string;
 }

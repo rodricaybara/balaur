@@ -1,3 +1,5 @@
+import type { UserResponse } from '@/api/api';
+
 // Exportar tipos desde la API generada
 export type { 
   UserRole,
