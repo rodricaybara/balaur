@@ -30,6 +30,9 @@ sudo apt update && sudo apt upgrade -y
 
 # Install system dependencies
 sudo apt install -y python3 python3-venv python3-pip postgresql nginx git
+
+# Create user app
+sudo useradd -m -s /bin/bash balaur-app
 ```
 
 ---
@@ -62,7 +65,7 @@ sudo apt install -y proftpd openssl proftpd-mod-ldap
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout /etc/ssl/private/proftpd.key \
   -out /etc/ssl/certs/proftpd.crt \
-  -subj "/C=ES/ST=Basque/L=Leioa/O=University/CN=ftp.balaur.local"
+  -subj "/CN=ftp.balaur.local"
 ```
 
 #### 3.2. Create directory structure
@@ -285,7 +288,7 @@ sudo systemctl status proftpd
 #### 3.6. Manual Test
 
 ```bash
-# As user balaur-app (created in step 4.1)
+# As user balaur-app (created in step 1)
 sudo -u balaur-app bash
 
 # Try to create a file in pending
@@ -328,76 +331,789 @@ sudo systemctl restart balaur-backend
 
 ### 4. Install Backend Application
 
+# 4.1 Create directories
+
 ```bash
-sudo useradd -m -s /bin/bash balaur-app
+sudo mkdir -p /var/log/balaur/{backend,frontend}
+sudo mkdir -p /opt/balaur
+
+# Dar permisos
+sudo chown -R balaur-app:balaur-app /var/log/balaur
+sudo chown -R balaur-app:balaur-app /opt/balaur
 ```
 
+# 4.2 Clone the repository
 
+```bash
+sudo su - balaur-app
+cd /opt
+
+# Clone repository
+git clone <repository-url> .
+
+```
+
+# 4.3 Create the virtual environment and install dependencies
+
+```bash
+cd /opt/balaur/backend
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Update pip
+pip install --upgrade pip
+
+# Install dependencies
+pip install -r requirements.txt
+
+# logout
+exit
+```
+
+**Important:** Specific versions of `bcrypt` and `passlib` are required due to incompatibilities between bcrypt 5.0+ and passlib.
 
 ### 5. Configure Application with Secure Secrets Management
 
-*(Sections 5.1 – 5.5 translated fully.)*
+#### 5.1. Run Automatic Setup Script
+
+```bash
+cd /opt/balaur/backend
+sudo chmod +x scripts/setup_secrets.sh
+sudo ./scripts/setup_secrets.sh
+
+# Requests encryption and verification password
+# Generates a random password for the database user balaur and one for the FTP user balaur
+```
+
+This script:
+- ✅ Automatically generates secure passwords
+- ✅ Generates security keys (SECRET_KEY, ENCRYPTION_KEY)
+- ✅ Configures PostgreSQL with the credentials
+- ✅ Configures the FTP user
+- ✅ Creates a complete `.env` file
+- ✅ Saves everything to a vault encrypted with AES-256
+
+**Note:** Save the vault password in a secure location (password manager). You will need it to decrypt the credentials later.
+
+```bash
+openssl enc -aes-256-cbc -d -pbkdf2 -in /opt/balaur/secrets/credentials.vault | less
+```
+
+#### 5.2. Configure LDAP/Active Directory
+
+Edit the `.env` file with your organization's settings:
+
+```bash
+sudo nano /opt/balaur/backend/.env
+```
+
+**Note:** For Microsoft Active Directory:
+- Use `sAMAccountName` as a search filter (not `uid`)
+- The object class is `user` (not `inetOrgPerson`)
+- If using LDAPS (port 636), configure SSL certificates appropriately
+
+#### 5.3. Test LDAP configuration
+
+```bash
+cd /opt/balaur/backend
+source venv/bin/activate
+python3 scripts/test_ldap.py <your_user> <your_password>
+exit
+```
+
+You should see:
+```
+✓ Service account bind successful
+✓ User found!
+✓ User authentication successful!
+✓ ALL TESTS PASSED
+```
+
+#### 5.4. Secrets Management Scripts
+
+**View Credentials (when necessary):**
+```bash
+sudo chmod 775 /opt/balaur/backend/scripts/view_secrets.sh
+sudo /opt/balaur/backend/scripts/view_secrets.sh
+```
+
+**Rotate Passwords Periodically:**
+```bash
+sudo chmod 775 /opt/balaur/backend/scripts/rotate_password.sh
+# Rotate database only
+sudo /opt/balaur/backend/scripts/rotate_password.sh db
+
+# Rotate FTP only
+sudo /opt/balaur/backend/scripts/rotate_password.sh ftp
+
+# Rotate everything
+sudo /opt/balaur/backend/scripts/rotate_password.sh all
+```
+
+#### 5.5 Protect .env file
+
+```bash
+sudo chown balaur-app:balaur-app /opt/balaur/backend/.env
+sudo chmod 600 /opt/balaur/backend/.env
+```
 
 ---
 
 ### 6. Initialize Database
 
-*(All Alembic and DB initialization instructions translated and preserved.)*
+#### 6.1. Configure Alembic
+
+The configuration files should already be in the repository. Verify:
+
+```bash
+ls -la /opt/balaur/backend/alembic/env.py
+ls -la /opt/balaur/backend/alembic.ini
+```
+
+#### 6.2. Create Initial Migration
+
+```bash
+sudo su - balaur-app
+cd /opt/balaur/backend
+source venv/bin/activate
+```
+
+```bash
+# Run migrations
+alembic upgrade head
+
+# Generate migration from models
+alembic revision --autogenerate -m "Initial schema"
+exit
+```
+
+**Important Note:** The `DATABASE_URL` variable in `.env` must be in **plain text** for Alembic to read it. This is a known limitation of Alembic (it cannot read encrypted credentials from the vault).
+
+#### 6.3. Apply migrations
+
+```bash
+alembic upgrade head
+```
+
+You should see:
+```
+INFO [alembic.runtime.migration] Running upgrade -> abc123, Initial schema
+```
+
+#### 6.4. Verify database structure
+
+```bash
+sudo -u postgres psql balaur_sms
+
+# List tables
+\dt
+
+# View table structure
+\d users
+
+\q
+```
+
+#### 6.5. Initializing Sample Data
+
+You need to install the following libraries: aiofiles and apscheduler
+
+```bash
+sudo su - balaur-app
+cd /opt/balaur/backend
+source venv/bin/activate
+python3 scripts/init_db.py
+exit
+```
+
+Answer `yes` when prompted. The script will create:
+- 4 test users (admin, manager, user, guest)
+- 5 sample software applications
+- 3 sample licenses
+
+**Default Credentials:**
+- Admin: `admin / Admin123!`
+- Manager: `manager / Manager123!`
+- User: `user / User123!`
+- Guest: `guest / Guest123!`
+
+⚠️ **IMPORTANT:** Change these passwords in production.
+
+#### 6.6. Cleanup Script (Development)
+
+If you need to reset the data during development:
+
+```bash
+sudo -u postgres psql balaur_sms << EOF
+TRUNCATE TABLE users RESTART IDENTITY CASCADE;
+
+TRUNCATE TABLE software RESTART IDENTITY CASCADE;
+
+TRUNCATE TABLE licenses RESTART IDENTITY CASCADE;
+
+EOF
+```
+
+Then run `python3 scripts/init_db.py` again.
 
 ---
 
 ### 7. Configure systemd Service
 
-*(Full translation including the service file and Gunicorn configuration.)*
+#### 7.1. Create service file
+
+```bash
+sudo nano /etc/systemd/system/balaur-backend.service
+```
+
+Content:
+
+```ini
+[Unit]
+Description=Balaur SMS Backend - Software Management System
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=balaur-app
+Group=balaur-app
+WorkingDirectory=/opt/balaur/backend
+Environment="PATH=/opt/balaur/backend/venv/bin"
+Environment="PYTHONPATH=/opt/balaur/backend"
+
+[Unit]
+Description=Balaur SMS Backend - Software Management System
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=balaur-app
+Group=balaur-app
+WorkingDirectory=/opt/balaur/backend
+Environment="PATH=/opt/balaur/backend/venv/bin"
+Environment="PYTHONPATH=/opt/balaur/backend"
+
+ExecStart=/opt/balaur/backend/venv/bin/gunicorn -c /opt/balaur/backend/gunicorn.conf.py app.main:app
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The /opt/balaur/backend/gunicorn.conf.py configuration file :
+
+```bash
+sudo nano /etc/systemd/system/balaur-backend.service
+```
+
+```bash
+bind="0.0.0.0:8000"
+workers = 4
+worker_class = "uvicorn.workers.UvicornWorker"
+accesslog = "/var/log/balaur/backend/access.log"
+errorlog = "/var/log/balaur/backend/error.log"
+loglevel="info"
+timeout = 300
+
+```
+
+```bash
+sudo chown balaur-app:balaur-app gunicorn.conf.py
+```
+
+#### 7.2. Enable and start service
+
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable auto start
+sudo systemctl enable balaur-backend
+
+# Start service
+sudo systemctl start balaur-backend
+
+# Check status
+sudo systemctl status balaur-backend
+```
+
+You should see:
+```
+● balaur-backend.service – Balaur SMS Backend 
+Loaded: loaded 
+Active: active (running)
+```
+
+#### 7.3. View logs
+
+```bash
+# Systemd service logs
+sudo journalctl -u balaur-backend -f
+
+# Application logs
+tail -f /var/log/balaur/backend/access.log
+tail -f /var/log/balaur/backend/error.log
+```
+
+#### 7.4. Testing the API
+
+```bash
+# Health check
+`curl http://localhost:8000/health
+
+# Interactive documentation (ONLY in development environments)
+`curl http://localhost:8000/docs
+```
+
+Or open in browser: `http://localhost:8000/docs`
 
 ---
 
-### 8. Configure nginx as Reverse Proxy
+### 8. Install frontend (Vue + Vite)
 
-*(Full nginx translation with all directives preserved.)*
+# 8.1 Install Node.js 20
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+# 8.2 build the forntend
+
+```bash
+sudo su - balaur-app
+cd /opt/balaur/frontend
+npm install
+npm run build
+exit
+```
+
+Make sure you have a valid .env file:
+
+```bash
+VITE_API_BASE_URL=/api/v1
+VITE_APP_NAME=Balaur SMS
+```
+
+⚠️ Very important: delete .env.production and .env.development if they are not in use, as Vite prioritizes them.
+
+# 8.3 SSL certificate autogenerated (test only)
+
+```bash
+sudo openssl req -x509 -nodes -days 365 \
+  -newkey rsa:2048 \
+  -keyout /etc/ssl/private/balaur-selfsigned.key \
+  -out /etc/ssl/certs/balaur-selfsigned.crt
+```
+
+# 8.4 Nginx configuration
+
+Create the /etc/nginx/sites-available/balaur-sms file
+
+```bash
+sudo nano /etc/nginx/sites-available/balaur-sms
+```
+
+```bash
+# /etc/nginx/sites-available/balaur-sms
+upstream balaur_backend {
+    server 127.0.0.1:8000;
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name <SERVER_NAME OR IP>;
+
+    # Redirect all HTTP to HTTPS
+    location /.well-known/acme-challenge/ {
+        # allow certbot to verify challenges
+        root /var/www/letsencrypt;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name <SERVER_NAME OR IP>;
+
+    ssl_certificate /etc/ssl/certs/balaur-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/balaur-selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Logs
+    access_log /var/log/nginx/balaur-access.log;
+    error_log  /var/log/nginx/balaur-error.log warn;
+
+    # Security headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    # Optionally add a Content-Security-Policy (adapt to your assets/domains)
+    # add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:;
+connect-src 'self' https://balaur.university.edu;" always;
+
+    # Frontend (SPA) - serve static files
+    root /opt/balaur/frontend/dist;
+    index index.html;
+
+    # Serve static assets with long cache (assume assets fingerprinted)
+    location ~* \.(?:css|js|svg|ico|png|jpg|jpeg|webp|woff2?|ttf|otf)$ {
+        try_files $uri =404;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # HTML and SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API proxy to FastAPI
+    location /api/ {
+        proxy_pass http://balaur_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+
+        # Uploads/timeouts for large files
+        client_max_body_size 10G;
+        client_body_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+
+        # Websocket support (if backend uses websockets)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Optional docs endpoints (disable in production if DOCS_ENABLED=False)
+    location /docs {
+        proxy_pass http://balaur_backend/docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+    location /redoc {
+        proxy_pass http://balaur_backend/redoc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Health check (internal)
+    location = /health {
+        proxy_pass http://balaur_backend/health;
+        proxy_set_header Host $host;
+    }
+
+    # Deny access to sensitive files
+    location ~ (^|/)\.env$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Rate limiting (optional)
+    # limit_req_zone $binary_remote_addr zone=one:10m rate=30r/m;
+    # location /api/ {
+    #     limit_req zone=one burst=20 nodelay;
+    # }
+}
+```
+
+#### 8.5. Enable Site
+
+```bash
+# Create symbolic link
+sudo ln -s /etc/nginx/sites-available/balaur-sms /etc/nginx/sites-enabled/
+
+# Verify configuration
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+```
 
 ---
 
-## 🔒 Post-Installation Security
+## 9. Post-Installation Security
 
-*(Firewall, Fail2ban, and log rotation sections translated.)*
+### 9.1. Firewall
+
+```bash
+# Configure UFW
+sudo ufw allow 22/tcp # SSH
+sudo ufw allow 80/tcp # HTTP
+sudo ufw allow 443/tcp # HTTPS
+sudo ufw allow 21/tcp # FTP control
+sudo ufw allow 49152:65534/tcp # FTP passive ports
+sudo ufw enable
+sudo ufw status
+```
+
+### 9.2. Fail2ban
+
+```bash
+sudo apt install -y fail2ban
+
+# Configure jail for nginx, SSH and ProFTPD
+sudo nano /etc/fail2ban/jail.local
+```
+
+Content:
+
+```ini
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+
+[sshd]
+enabled = true
+
+[nginx-http-auth]
+enabled = true
+
+[proftpd]
+enabled = true
+```
+
+```bash
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
 
 ---
 
-## 📊 Monitoring & Maintenance
+## 10. Monitoring & Maintenance
 
-*(All health checks, logs, and systemctl instructions translated.)*
+### 10.1. Log Rotation
+
+```bash
+sudo nano /etc/logrotate.d/balaur-sms
+```
+
+Contents:
+
+```
+/var/log/balaur/backend/*.log {
+daily
+rotate 30
+compress
+delaycompress
+notifempty
+create 0640 balaur-app balaur-app
+sharedscripts
+postrotate
+systemctl reload balaur-backend > /dev/null 2>&1 || true
+endscript
+}
+```
+
+
+### 10.2. Health Checks
+
+```bash
+# Verify that the API is responding
+curl -f http://localhost:8000/health || echo "API is down!"
+
+# Create systemd timer for automatic health check (optional)
+```
+
+### 10.3. View logs in real time
+
+```bash
+# Backend logs
+sudo journalctl -u balaur-backend -f
+
+# nginx logs
+sudo tail -f /var/log/nginx/balaur-error.log
+
+# PostgreSQL logs
+sudo tail -f /var/log/postgresql/postgresql-15-main.log
+
+# ProFTPD logs
+sudo tail -f /var/log/proftpd/proftpd.log
+```
+
+### 10.4. Check service status
+
+```bash
+sudo systemctl status balaur-backend
+sudo systemctl status postgresql
+sudo systemctl status nginx
+sudo systemctl status proftpd
+```
 
 ---
 
-## 🔄 Updates
+## 11. Updates
 
-*(All update steps translated.)*
+```bash
+#1. Stop service
+sudo systemctl stop balaur-backend
+
+#2. As a balaur-app user
+sudo su - balaur-app
+cd /opt/balaur-sms/backend
+
+#3. Pull changes
+git pull origin main
+
+#4. Activate venv and update dependencies
+source venv/bin/activate
+pip install -r requirements.txt --upgrade
+
+#5. Run migrations
+alembic upgrade head
+
+#6. Exit and restart service
+exit
+sudo systemctl start balaur-backend
+sudo systemctl status balaur-backend
+```
 
 ---
 
-## 🛠 Troubleshooting
+## 12. Troubleshooting
 
-*(All debugging sections translated.)*
+### 12.1. Problem: Service does not start
+
+```bash
+# View detailed logs
+sudo journalctl -u balaur-backend -n 100 --no-pager
+
+# Verify that the .env exists and has correct permissions
+ls -la /opt/balaur-sms/backend/.env
+
+# Test manual import
+sudo su - balaur-app
+cd /opt/balaur-sms/backend
+source venv/bin/activate
+python -c "from app.main import app; print('OK')"
+```
+
+### 12.2. Problem: FTP permissions error
+
+```bash
+# Check groups
+groups balaur-app
+# Must include: balaur
+
+# Check directory permissions
+ls -la /srv/ftp/balaur/
+
+# Reapply permissions if necessary
+sudo chown -R balaur:balaur /srv/ftp/balaur
+sudo chmod -R 775 /srv/ftp/balaur
+```
+
+### 12.3. Problem: LDAP not connecting
+
+```bash
+# Test LDAP connection
+cd /opt/balaur-sms/backend
+source venv/bin/activate
+python3 scripts/test_ldap.py <username> <password>
+
+# Verify that the server is accessible
+ping <LDAP_SERVER_NAME>
+telnet <LDAP_SERVER_NAME> 636 # For LDAP
+```
+
+### 12.4. Problem: Database with inconsistent data
+
+```bash
+# Reset tables (DEVELOPMENT ONLY)
+sudo -u postgres psql balaur_sms << EOF
+TRUNCATE TABLE users RESTART IDENTITY CASCADE;
+
+TRUNCATE TABLE software RESTART IDENTITY CASCADE; TRUNCATE TABLE licenses RESTART IDENTITY CASCADE;
+
+EOF
+
+# Reinitialize
+python3 scripts/init_db.py
+```
+
+### 12.5. Problem: Port 8000 is already in use
+
+```bash
+# See which process is using the port
+sudo lsof -i :8000
+
+# If there is an old process, kill it
+sudo kill -9 <PID>
+
+# Restart service
+sudo systemctl restart balaur-backend
+```
 
 ---
 
-## 📋 Production Checklist
+## 13 Backup & Recovery
 
-*(All checklist items translated.)*
+### 13.1. Database Backup
+
+```bash
+# Create backup directory
+sudo mkdir -p /var/backups/balaur
+sudo chown postgres:postgres /var/backups/balaur
+
+# Manual backup
+sudo -u postgres pg_dump balaur_sms > /var/backups/balaur/balaur_sms_$(date +%Y%m%d).sql
+
+# Automate with cron (daily at 2 AM)
+sudo crontab -e -u postgres
+# Add:
+0 2 * * * pg_dump balaur_sms > /var/backups/balaur/balaur_sms_$(date +%Y%m%d).sql
+```
+
+### 13.2. Credential vault backup
+
+```bash
+# Copy vault to secure location
+sudo cp /opt/balaur-sms/secrets/credentials.vault
+
+/secure/path/balaur-credentials-$(date +%Y%m%d).vault
+```
+
+### 13.3. Restore
+
+```bash
+# Restore database
+sudo -u postgres psql balaur_sms < /var/backups/balaur/balaur_sms_YYYYMMDD.sql
+
+# Restore vault
+sudo cp /secure/path/balaur-credentials-YYYYMMDD.vault
+
+/opt/balaur-sms/secrets/credentials.vault
+```
 
 ---
-
-## 🔐 Backup & Recovery
-
-*(Full backup/restore sections translated.)*
-
----
-
-## 📞 Support
-
-For issues or questions:
-
-* Email: [it@university.edu](mailto:it@university.edu)
-* Documentation: [https://docs.balaur.university.edu](https://docs.balaur.university.edu)
-* Repository: *[link]*
