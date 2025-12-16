@@ -1192,5 +1192,4 @@ sudo cp /secure/path/balaur-credentials-YYYYMMDD.vault
 
 /opt/balaur/secrets/credentials.vault
 ```
-
 ---
