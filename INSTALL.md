@@ -128,7 +128,7 @@ sudo useradd -m -d /srv/ftp/balaur -s /bin/bash balaur
 sudo groupadd balaur-upload
 sudo groupadd balaur-download
 sudo usermod -a -G balaur-upload,balaur-download balaur
-sudo usermod -a -G balaur-upload balaur-app
+sudo usermod -a -G balaur-upload,balaur-download balaur-app
 ```
 
 #### 3.3. Create directory structure
