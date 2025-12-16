@@ -226,6 +226,8 @@ LDAP_GROUP_ADMIN=cn=balaur-admins,ou=groups,dc=university,dc=edu
 LDAP_GROUP_MANAGER=cn=balaur-managers,ou=groups,dc=university,dc=edu
 LDAP_GROUP_USER=cn=balaur-users,ou=groups,dc=university,dc=edu
 LDAP_TIMEOUT=10
+LDAP_REFERRALS=False
+LDAP_TLS_REQUIRE_CERT=never
 
 # FTP
 FTP_HOST=localhost

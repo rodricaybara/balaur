@@ -121,9 +121,10 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -subj "/CN=ftp.balaur.local"
 ```
 
-#### 3.2. Create FTP Groups
+#### 3.2. Create FTP users and groups
 
 ```bash
+sudo useradd -m -d /srv/ftp/balaur -s /bin/bash balaur
 sudo groupadd balaur-upload
 sudo groupadd balaur-download
 sudo usermod -a -G balaur-upload,balaur-download balaur
@@ -135,9 +136,6 @@ sudo usermod -a -G balaur-upload balaur-app
 ```bash
 # Create FTP structure
 sudo mkdir -p /srv/ftp/balaur/{inbox/{pending,processing},repository,quarantine}
-
-# Create balaur user for FTP
-sudo useradd -m -d /srv/ftp/balaur -s /bin/bash balaur
 
 # Adjust permissions (IMPORTANT for backend access)
 sudo chown -R balaur:balaur /srv/ftp
@@ -305,7 +303,7 @@ Include /etc/proftpd/tls.conf
 </VirtualHost>
 ```
 
-Crear `/etc/proftpd/tls.conf`:
+Create `/etc/proftpd/tls.conf`:
 
 ```apache
 #
@@ -359,20 +357,18 @@ mv /srv/ftp/balaur/inbox/pending/test.txt /srv/ftp/balaur/inbox/processing/
 
 ```bash
 System users:
-  balaur-app (corre FastAPI/Gunicorn)
-  balaur (dueño de archivos FTP)
+  balaur-app (run FastAPI/Gunicorn)
+  balaur (owner of FTP files)
 
 Groups:
-  balaur-upload (usuarios FTP + balaur-app)
+  balaur-upload (FTP user + balaur-app)
+  balaur-download (FTP user + balaur-app)
 
 Directories:
   /srv/ftp/balaur/inbox/pending/     → 2775 (rwxrwsr-x) balaur:balaur-upload
   /srv/ftp/balaur/inbox/processing/  → 2775 (rwxrwsr-x) balaur:balaur-upload  
-  /srv/ftp/balaur/repository/        → 0755 (rwxr-xr-x) balaur-app:balaur-app
+  /srv/ftp/balaur/repository/        → 0755 (rwxr-xr-x) balaur:balaur-download
   /srv/ftp/balaur/quarantine/        → 2775 (rwxrwsr-x) balaur:balaur-upload
-
-Files upload to FTP:
-  -rw-rw-r-- (664) balaur:balaur-upload
 ```
 
 ---
@@ -397,7 +393,7 @@ sudo su - balaur-app
 cd /opt
 
 # Clone repository
-git clone <repository-url> .
+git clone https://github.com/rodricaybara/balaur.git .
 
 ```
 
@@ -446,7 +442,7 @@ This script:
 **Note:** Save the vault password in a secure location (password manager). You will need it to decrypt the credentials later.
 
 ```bash
-openssl enc -aes-256-cbc -d -pbkdf2 -in /opt/balaur/secrets/credentials.vault | less
+openssl enc -aes-256-cbc -d -pbkdf2 -in /opt/balaur/secrets/credentials.vault
 ```
 
 #### 5.2. Configure LDAP/Active Directory
@@ -476,6 +472,7 @@ LDAP_USE_TLS=true
 #### 5.3. Test LDAP configuration
 
 ```bash
+sudo su - balaur-app
 cd /opt/balaur/backend
 source venv/bin/activate
 python3 scripts/test_ldap.py <your_user> <your_password>
@@ -537,6 +534,7 @@ ls -la /opt/balaur/backend/alembic.ini
 sudo su - balaur-app
 cd /opt/balaur/backend
 source venv/bin/activate
+mkdir alembic/versions
 ```
 
 ```bash
@@ -661,7 +659,7 @@ WantedBy=multi-user.target
 The /opt/balaur/backend/gunicorn.conf.py configuration file :
 
 ```bash
-sudo nano /etc/systemd/system/balaur-backend.service
+sudo nano /opt/balaur/backend/gunicorn.conf.py
 ```
 
 ```bash
@@ -676,7 +674,7 @@ timeout = 300
 ```
 
 ```bash
-sudo chown balaur-app:balaur-app gunicorn.conf.py
+sudo chown balaur-app:balaur-app /opt/balaur/backend/gunicorn.conf.py
 ```
 
 #### 7.2. Enable and start service
@@ -732,11 +730,11 @@ Or open in browser: `http://localhost:8000/docs`
 # 8.1 Install Node.js 20
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-# 8.2 build the forntend
+# 8.2 build the frontend
 
 ```bash
 sudo su - balaur-app
@@ -819,8 +817,7 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     # Optionally add a Content-Security-Policy (adapt to your assets/domains)
-    # add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:;
-connect-src 'self' https://balaur.university.edu;" always;
+    # add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:;connect-src 'self' https://balaur.university.edu;" always;
 
     # Frontend (SPA) - serve static files
     root /opt/balaur/frontend/dist;
@@ -1019,7 +1016,14 @@ curl -f http://localhost:8000/health || echo "API is down!"
 # Create systemd timer for automatic health check (optional)
 ```
 
-### 10.3. View logs in real time
+### 10.3 CORS
+You need to configure de CORS in the backend .env file. Add the IP of the server:
+
+```bash
+CORS_ORIGINS=["http://localhost:3000","https://localhost:3000", "http://<IP_SERVER or SERVER_NAME>", "https://<IP_SERVER or SERVER_NAME>"]
+```
+
+### 10.4. View logs in real time
 
 ```bash
 # Backend logs
@@ -1035,7 +1039,7 @@ sudo tail -f /var/log/postgresql/postgresql-15-main.log
 sudo tail -f /var/log/proftpd/proftpd.log
 ```
 
-### 10.4. Check service status
+### 10.5. Check service status
 
 ```bash
 sudo systemctl status balaur-backend
@@ -1054,7 +1058,7 @@ sudo systemctl stop balaur-backend
 
 #2. As a balaur-app user
 sudo su - balaur-app
-cd /opt/balaur/backend
+cd /opt/balaur/
 
 #3. Pull changes
 git pull origin $(git branch --show-current)
