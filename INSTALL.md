@@ -18,6 +18,59 @@
 * Disk: 500GB+ (depending on installer volume)
 * Network: 1Gbps
 
+## Pre-Installation Checklist
+
+- [ ] Server with Ubuntu 22.04 LTS or newer
+- [ ] Root/sudo access
+- [ ] Domain name configured (A record pointing to server)
+- [ ] Active Directory accessible from server
+- [ ] Firewall ports open (80, 443, 21, 49152-65534)
+- [ ] At least 8GB RAM and 4 CPU cores
+- [ ] 500GB+ available disk space
+
+---
+
+## Architecture
+
+```
+┌─────────────┐
+│   Clients   │
+└──────┬──────┘
+       │ HTTPS (443)
+       ▼
+┌─────────────┐
+│   Nginx     │ ← Reverse Proxy
+│  (SSL/TLS)  │
+└──────┬──────┘
+       │
+       ├─────► /api → Backend (FastAPI:8000)
+       │
+       └─────► / → Frontend (Vue SPA)
+
+┌─────────────┐
+│  ProFTPD    │ ← FTP/FTPS (21, 990, passive)
+│ + LDAP Auth │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────┐
+│    File System              │
+│  /srv/ftp/balaur/           │
+│  ├── inbox/                 │
+│  │   ├── pending/   ← FTP uploads
+│  │   └── processing/ ← Watcher moves here
+│  ├── repository/    ← Registered installers
+│  └── quarantine/    ← Failed validations
+└─────────────────────────────┘
+
+┌─────────────┐
+│ PostgreSQL  │ ← Database
+└─────────────┘
+
+┌─────────────┐
+│ Active Dir. │ ← LDAP/AD for auth
+└─────────────┘
+```
 ---
 
 ## 🔧 Step-by-Step Installation
@@ -68,7 +121,16 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -subj "/CN=ftp.balaur.local"
 ```
 
-#### 3.2. Create directory structure
+#### 3.2. Create FTP Groups
+
+```bash
+sudo groupadd balaur-upload
+sudo groupadd balaur-download
+sudo usermod -a -G balaur-upload,balaur-download balaur
+sudo usermod -a -G balaur-upload balaur-app
+```
+
+#### 3.3. Create directory structure
 
 ```bash
 # Create FTP structure
@@ -82,9 +144,11 @@ sudo chown -R balaur:balaur /srv/ftp
 sudo chmod 775 /srv/ftp
 sudo chown -R balaur:balaur /srv/ftp/balaur
 sudo chmod 775 /srv/ftp/balaur
+sudo chown -R balaur:balaur-upload /srv/ftp/balaur/inbox
 sudo chmod 775 /srv/ftp/balaur/inbox
 sudo chmod 775 /srv/ftp/balaur/inbox/pending
 sudo chmod 775 /srv/ftp/balaur/inbox/processing
+sudo chown -R balaur:balaur-download /srv/ftp/balaur/repository
 sudo chmod 775 /srv/ftp/balaur/repository
 sudo chmod 775 /srv/ftp/balaur/quarantine
 sudo chmod -R g+rw /srv/ftp/balaur
@@ -94,7 +158,7 @@ sudo chmod g+s /srv/ftp/balaur/inbox/processing
 sudo chmod g+s /srv/ftp/balaur/quarantine
 ```
 
-#### 3.3. Configure ProFTPD
+#### 3.4. Configure ProFTPD
 
 Create `/etc/proftpd/proftpd.conf`:
 
@@ -264,15 +328,6 @@ Crear `/etc/proftpd/tls.conf`:
 </IfModule>
 ```
 
-#### 3.4. Create FTP Groups
-
-```bash
-sudo groupadd balaur-upload
-sudo groupadd balaur-download
-sudo usermod -a -G balaur-upload,balaur-download balaur
-sudo usermod -a -G balaur-upload balaur-app
-```
-
 #### 3.5. Restart ProFTPD
 
 ```bash
@@ -318,13 +373,6 @@ Directories:
 
 Files upload to FTP:
   -rw-rw-r-- (664) balaur:balaur-upload
-
-Comannds:
-sudo usermod -aG balaur-upload balaur-app
-sudo chmod 2775 /srv/ftp/balaur/inbox/{pending,processing}
-sudo chmod 2775 /srv/ftp/balaur/quarantine
-sudo chmod 0755 /srv/ftp/balaur/repository
-sudo systemctl restart balaur-backend
 ```
 
 ---
@@ -407,6 +455,17 @@ Edit the `.env` file with your organization's settings:
 
 ```bash
 sudo nano /opt/balaur/backend/.env
+```
+**Example**
+
+```bash
+# LDAP Configuration
+LDAP_SERVER=ldaps://dc.university.edu:636
+LDAP_BIND_DN=cn=balaur-service,ou=Service Accounts,dc=university,dc=edu
+LDAP_BIND_PASSWORD=<generado por setup_secrets.sh>
+LDAP_SEARCH_BASE=dc=university,dc=edu
+LDAP_SEARCH_FILTER=(sAMAccountName={username})
+LDAP_USE_TLS=true
 ```
 
 **Note:** For Microsoft Active Directory:
@@ -571,18 +630,6 @@ sudo nano /etc/systemd/system/balaur-backend.service
 Content:
 
 ```ini
-[Unit]
-Description=Balaur SMS Backend - Software Management System
-After=network.target postgresql.service
-
-[Service]
-Type=notify
-User=balaur-app
-Group=balaur-app
-WorkingDirectory=/opt/balaur/backend
-Environment="PATH=/opt/balaur/backend/venv/bin"
-Environment="PYTHONPATH=/opt/balaur/backend"
-
 [Unit]
 Description=Balaur SMS Backend - Software Management System
 After=network.target postgresql.service
@@ -934,6 +981,32 @@ postrotate
 systemctl reload balaur-backend > /dev/null 2>&1 || true
 endscript
 }
+
+/var/log/proftpd/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 0640 proftpd proftpd
+    sharedscripts
+    postrotate
+        systemctl reload proftpd > /dev/null 2>&1 || true
+    endscript
+}
+
+/var/log/nginx/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 0640 www-data www-data
+    sharedscripts
+    postrotate
+        systemctl reload nginx > /dev/null 2>&1 || true
+    endscript
+}
 ```
 
 
@@ -981,10 +1054,10 @@ sudo systemctl stop balaur-backend
 
 #2. As a balaur-app user
 sudo su - balaur-app
-cd /opt/balaur-sms/backend
+cd /opt/balaur/backend
 
 #3. Pull changes
-git pull origin main
+git pull origin $(git branch --show-current)
 
 #4. Activate venv and update dependencies
 source venv/bin/activate
@@ -1010,11 +1083,11 @@ sudo systemctl status balaur-backend
 sudo journalctl -u balaur-backend -n 100 --no-pager
 
 # Verify that the .env exists and has correct permissions
-ls -la /opt/balaur-sms/backend/.env
+ls -la /opt/balaur/backend/.env
 
 # Test manual import
 sudo su - balaur-app
-cd /opt/balaur-sms/backend
+cd /opt/balaur/backend
 source venv/bin/activate
 python -c "from app.main import app; print('OK')"
 ```
@@ -1038,7 +1111,7 @@ sudo chmod -R 775 /srv/ftp/balaur
 
 ```bash
 # Test LDAP connection
-cd /opt/balaur-sms/backend
+cd /opt/balaur/backend
 source venv/bin/activate
 python3 scripts/test_ldap.py <username> <password>
 
@@ -1099,7 +1172,7 @@ sudo crontab -e -u postgres
 
 ```bash
 # Copy vault to secure location
-sudo cp /opt/balaur-sms/secrets/credentials.vault
+sudo cp /opt/balaur/secrets/credentials.vault
 
 /secure/path/balaur-credentials-$(date +%Y%m%d).vault
 ```
@@ -1113,7 +1186,7 @@ sudo -u postgres psql balaur_sms < /var/backups/balaur/balaur_sms_YYYYMMDD.sql
 # Restore vault
 sudo cp /secure/path/balaur-credentials-YYYYMMDD.vault
 
-/opt/balaur-sms/secrets/credentials.vault
+/opt/balaur/secrets/credentials.vault
 ```
 
 ---
