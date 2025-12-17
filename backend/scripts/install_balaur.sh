@@ -18,7 +18,11 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="/var/log/balaur-install-$(date +%Y%m%d-%H%M%S).log"
 CONFIG_FILE="/tmp/balaur-install.conf"
-RESUME_FILE="/opt/balaur/.install_progress"
+# Preferred and fallback resume locations. We'll pick the first writable one at startup.
+DEFAULT_RESUME_DIR="/opt/balaur"
+FALLBACK_RESUME_DIR="/var/lib/balaur"
+RESUME_DIR="$DEFAULT_RESUME_DIR"
+RESUME_FILE="$RESUME_DIR/.install_progress"
 CURRENT_STEP=0
 
 # Source utility functions
@@ -41,7 +45,7 @@ error_handler() {
     
     read -p "Do you want to save progress for resume? (y/n): " SAVE_PROGRESS
     if [[ "$SAVE_PROGRESS" =~ ^[Yy]$ ]]; then
-        echo "$CURRENT_STEP" > "$RESUME_FILE"
+        save_progress "$CURRENT_STEP"
         log_info "Progress saved. Run script again to resume from step $CURRENT_STEP"
     fi
     
@@ -100,12 +104,56 @@ check_resume() {
 }
 
 ################################################################################
-# Save progress
+# Prepare and save progress utilities
 ################################################################################
+prepare_resume_file() {
+    # Try preferred dir, then fallback dirs, then /tmp
+    for dir in "$RESUME_DIR" "$FALLBACK_RESUME_DIR" "/run/balaur" "/var/lib/balaur" "/tmp"; do
+        mkdir -p "$dir" 2>/dev/null || true
+        touch "$dir/.install_progress" 2>/dev/null || true
+        # check writability
+        if [ -w "$dir" ] || [ -w "$dir/.install_progress" ]; then
+            RESUME_DIR="$dir"
+            RESUME_FILE="$RESUME_DIR/.install_progress"
+            chmod 0666 "$RESUME_FILE" 2>/dev/null || true
+            return 0
+        fi
+    done
+    # No writable location found
+    log_warn "No writable location available for resume progress; progress will not be saved"
+    RESUME_FILE=""
+    return 1
+}
+
 save_progress() {
     local step=$1
-    echo "$step" > "$RESUME_FILE"
+    if [ -z "${RESUME_FILE:-}" ]; then
+        log_warn "Resume file not configured; skipping save of progress"
+        CURRENT_STEP=$step
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$RESUME_FILE")" 2>/dev/null || true
+
+    if printf "%s\n" "$step" > "$RESUME_FILE" 2>/dev/null; then
+        CURRENT_STEP=$step
+        return 0
+    fi
+
+    if printf "%s\n" "$step" | tee "$RESUME_FILE" > /dev/null 2>/dev/null; then
+        CURRENT_STEP=$step
+        return 0
+    fi
+
+    chmod 0666 "$RESUME_FILE" 2>/dev/null || true
+    if printf "%s\n" "$step" > "$RESUME_FILE" 2>/dev/null; then
+        CURRENT_STEP=$step
+        return 0
+    fi
+
+    log_error "Could not write to $RESUME_FILE; progress will not be saved"
     CURRENT_STEP=$step
+    return 0
 }
 
 ################################################################################
@@ -238,6 +286,9 @@ main() {
     
     log_info "Starting Balaur SMS installation"
     log_info "Log file: $LOG_FILE"
+    
+    # Prepare resume file location (create dirs or fallback)
+    prepare_resume_file
     
     # Check for resume
     local resume=false
