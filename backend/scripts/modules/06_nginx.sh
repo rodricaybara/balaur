@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
-source "$SCRIPT_DIR/modules/utils/logger.sh"
+source "$SCRIPT_DIR/utils/logger.sh"
 
 log_section "Nginx Configuration"
 

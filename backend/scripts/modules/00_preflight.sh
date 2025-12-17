@@ -8,8 +8,9 @@ set -euo pipefail
 
 # Source utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
-source "$SCRIPT_DIR/modules/utils/logger.sh"
-source "$SCRIPT_DIR/modules/utils/validators.sh"
+source "$SCRIPT_DIR/utils/logger.sh"
+source "$SCRIPT_DIR/utils/validators.sh"
+source "$SCRIPT_DIR/utils/prompts.sh"
 
 log_section "Pre-flight System Checks"
 
@@ -52,7 +53,9 @@ fi
 # Disk space
 if ! check_disk_space "/" 50; then
     log_error "Insufficient disk space. At least 50GB required."
-    exit 1
+    if ! confirm_continue "Continue anyway?"; then
+        exit 1
+    fi
 fi
 
 ################################################################################

@@ -1,323 +1,474 @@
 #!/bin/bash
 ################################################################################
-# Logger Utilities
-# Funciones para logging con colores y formato
+# Interactive Prompts
+# Funciones para interactuar con el usuario
 ################################################################################
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m'
-
-# Symbols
-SYMBOL_SUCCESS="✅"
-SYMBOL_ERROR="❌"
-SYMBOL_WARNING="⚠️"
-SYMBOL_INFO="ℹ️"
-SYMBOL_ARROW="➜"
-
 ################################################################################
-# Log functions
+# Basic prompts
 ################################################################################
 
-log_raw() {
-    local message="$*"
-    echo "$message" | tee -a "$LOG_FILE"
-}
-
-log_info() {
-    local message="$*"
-    echo -e "${BLUE}${SYMBOL_INFO}  [INFO]${NC} $message" | tee -a "$LOG_FILE"
-}
-
-log_success() {
-    local message="$*"
-    echo -e "${GREEN}${SYMBOL_SUCCESS} [OK]${NC}   $message" | tee -a "$LOG_FILE"
-}
-
-log_error() {
-    local message="$*"
-    echo -e "${RED}${SYMBOL_ERROR} [ERROR]${NC} $message" | tee -a "$LOG_FILE" >&2
-}
-
-log_warn() {
-    local message="$*"
-    echo -e "${YELLOW}${SYMBOL_WARNING}  [WARN]${NC} $message" | tee -a "$LOG_FILE"
-}
-
-log_step() {
-    local message="$*"
-    echo -e "${CYAN}${SYMBOL_ARROW}  $message${NC}" | tee -a "$LOG_FILE"
-}
-
-log_section() {
-    local title="$*"
-    local line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "" | tee -a "$LOG_FILE"
-    echo -e "${MAGENTA}$line${NC}" | tee -a "$LOG_FILE"
-    echo -e "${WHITE}  $title${NC}" | tee -a "$LOG_FILE"
-    echo -e "${MAGENTA}$line${NC}" | tee -a "$LOG_FILE"
-    echo "" | tee -a "$LOG_FILE"
-}
-
-log_command() {
-    local cmd="$*"
-    log_step "Executing: $cmd"
-    if eval "$cmd" >> "$LOG_FILE" 2>&1; then
-        log_success "Command succeeded"
-        return 0
+prompt_input() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    if [ -n "$default_value" ]; then
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text [$default_value]: " value
+        value=${value:-$default_value}
     else
-        log_error "Command failed: $cmd"
-        return 1
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text: " value
     fi
+    
+    echo "$value"
 }
 
-log_command_output() {
-    local cmd="$*"
-    log_step "Executing: $cmd"
-    if eval "$cmd" 2>&1 | tee -a "$LOG_FILE"; then
-        log_success "Command succeeded"
-        return 0
-    else
-        log_error "Command failed: $cmd"
-        return 1
-    fi
-}
-
-################################################################################
-# Progress bar
-################################################################################
-
-show_progress() {
-    local current=$1
-    local total=$2
-    local message=$3
-    local width=50
-    local percentage=$((current * 100 / total))
-    local filled=$((width * current / total))
-    local empty=$((width - filled))
+prompt_password() {
+    local prompt_text=$1
+    local value
     
-    printf "\r${CYAN}["
-    printf "%${filled}s" | tr ' ' '█'
-    printf "%${empty}s" | tr ' ' '░'
-    printf "]${NC} %3d%% - %s" "$percentage" "$message"
-    
-    if [ $current -eq $total ]; then
-        echo ""
-    fi
-}
-
-################################################################################
-# Spinner
-################################################################################
-
-spinner() {
-    local pid=$1
-    local message=$2
-    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    local i=0
-    
-    while kill -0 $pid 2>/dev/null; do
-        i=$(( (i+1) % 10 ))
-        printf "\r${CYAN}${spin:$i:1}${NC} $message"
-        sleep 0.1
-    done
-    
-    printf "\r${GREEN}${SYMBOL_SUCCESS}${NC} $message\n"
-}
-
-################################################################################
-# Box drawing
-################################################################################
-
-draw_box() {
-    local text="$*"
-    local length=${#text}
-    local border_length=$((length + 4))
-    
+    read -s -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text: " value
     echo ""
-    echo -e "${BLUE}╔$(printf '═%.0s' $(seq 1 $border_length))╗${NC}"
-    echo -e "${BLUE}║${NC}  $text  ${BLUE}║${NC}"
-    echo -e "${BLUE}╚$(printf '═%.0s' $(seq 1 $border_length))╝${NC}"
-    echo ""
+    echo "$value"
 }
 
-################################################################################
-# Confirmation prompts with logging
-################################################################################
-
-confirm_action() {
-    local message="$1"
+prompt_yes_no() {
+    local prompt_text=$1
     local default="${2:-n}"
+    local response
     
-    log_warn "$message"
-    read -p "Continue? (y/n) [$default]: " response
+    if [ "$default" = "y" ]; then
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text (Y/n): " response
+    else
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text (y/N): " response
+    fi
+    
     response=${response:-$default}
     
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-        log_info "User confirmed: $message"
-        return 0
-    else
-        log_info "User cancelled: $message"
-        return 1
-    fi
+    [[ "$response" =~ ^[Yy]$ ]]
 }
 
-################################################################################
-# Time tracking
-################################################################################
-
-start_timer() {
-    START_TIME=$(date +%s)
-}
-
-stop_timer() {
-    local end_time=$(date +%s)
-    local duration=$((end_time - START_TIME))
-    local minutes=$((duration / 60))
-    local seconds=$((duration % 60))
-    
-    log_info "Elapsed time: ${minutes}m ${seconds}s"
-}
-
-################################################################################
-# Service status check
-################################################################################
-
-check_service() {
-    local service_name=$1
-    
-    if systemctl is-active --quiet "$service_name"; then
-        log_success "$service_name is running"
-        return 0
-    else
-        log_error "$service_name is not running"
-        return 1
-    fi
-}
-
-check_service_enabled() {
-    local service_name=$1
-    
-    if systemctl is-enabled --quiet "$service_name"; then
-        log_success "$service_name is enabled"
-        return 0
-    else
-        log_warn "$service_name is not enabled"
-        return 1
-    fi
-}
-
-################################################################################
-# File operations with logging
-################################################################################
-
-safe_backup() {
-    local file=$1
-    local backup="${file}.backup.$(date +%Y%m%d-%H%M%S)"
-    
-    if [ -f "$file" ]; then
-        log_step "Backing up $file to $backup"
-        cp "$file" "$backup"
-        log_success "Backup created"
-    fi
-}
-
-safe_create_dir() {
-    local dir=$1
-    local owner="${2:-root:root}"
-    local perms="${3:-755}"
-    
-    if [ ! -d "$dir" ]; then
-        log_step "Creating directory: $dir"
-        mkdir -p "$dir"
-        chown "$owner" "$dir"
-        chmod "$perms" "$dir"
-        log_success "Directory created"
-    else
-        log_info "Directory already exists: $dir"
-    fi
-}
-
-safe_write_file() {
-    local file=$1
-    local content=$2
-    local owner="${3:-root:root}"
-    local perms="${4:-644}"
-    
-    log_step "Writing file: $file"
-    safe_backup "$file"
-    echo "$content" > "$file"
-    chown "$owner" "$file"
-    chmod "$perms" "$file"
-    log_success "File written"
-}
-
-################################################################################
-# Wait for condition
-################################################################################
-
-wait_for_service() {
-    local service=$1
-    local max_wait=${2:-30}
-    local count=0
-    
-    log_step "Waiting for $service to be ready..."
-    
-    while [ $count -lt $max_wait ]; do
-        if systemctl is-active --quiet "$service"; then
-            log_success "$service is ready"
-            return 0
-        fi
-        sleep 1
-        count=$((count + 1))
-        printf "."
-    done
-    
-    echo ""
-    log_error "$service failed to start within ${max_wait}s"
-    return 1
-}
-
-wait_for_port() {
-    local port=$1
-    local max_wait=${2:-30}
-    local count=0
-    
-    log_step "Waiting for port $port to be ready..."
-    
-    while [ $count -lt $max_wait ]; do
-        if nc -z localhost "$port" 2>/dev/null; then
-            log_success "Port $port is ready"
-            return 0
-        fi
-        sleep 1
-        count=$((count + 1))
-        printf "."
-    done
-    
-    echo ""
-    log_error "Port $port not ready within ${max_wait}s"
-    return 1
-}
-
-################################################################################
-# Summary functions
-################################################################################
-
-print_summary() {
-    local title="$1"
+prompt_choice() {
+    local prompt_text=$1
     shift
-    local items=("$@")
+    local options=("$@")
+    local choice
     
-    log_section "$title"
-    for item in "${items[@]}"; do
-        echo "  • $item"
-    done
     echo ""
+    echo -e "${CYAN}$prompt_text${NC}"
+    echo ""
+    
+    for i in "${!options[@]}"; do
+        echo "  $((i+1))) ${options[$i]}"
+    done
+    
+    echo ""
+    while true; do
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) Choose [1-${#options[@]}]: " choice
+        
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
+            echo "${options[$((choice-1))]}"
+            return 0
+        else
+            echo -e "${RED}Invalid choice. Please select 1-${#options[@]}${NC}"
+        fi
+    done
+}
+
+################################################################################
+# Validated prompts
+################################################################################
+
+prompt_hostname_or_ip() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_hostname_or_ip "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid hostname or IP address. Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_email() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_email "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid email address. Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_port() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_port "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid port number (1-65535). Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_ldap_url() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_ldap_url "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid LDAP URL format (e.g., ldaps://server:636). Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_dn() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_dn "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid DN format (e.g., cn=user,dc=example,dc=com). Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_db_name() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_db_name "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid database name (lowercase letters, numbers, underscores only). Please try again.${NC}"
+        fi
+    done
+}
+
+prompt_path() {
+    local prompt_text=$1
+    local default_value=$2
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text" "$default_value")
+        
+        if validate_path "$value"; then
+            echo "$value"
+            return 0
+        else
+            echo -e "${RED}Invalid path format. Please try again.${NC}"
+        fi
+    done
+}
+
+################################################################################
+# Password prompts
+################################################################################
+
+prompt_strong_password() {
+    local prompt_text=$1
+    local min_length=${2:-12}
+    local password
+    local password_confirm
+    
+    while true; do
+        password=$(prompt_password "$prompt_text")
+        
+        if ! validate_password_strength "$password" "$min_length"; then
+            echo -e "${RED}Password does not meet requirements:${NC}"
+            echo "  • Minimum $min_length characters"
+            echo "  • At least one uppercase letter"
+            echo "  • At least one lowercase letter"
+            echo "  • At least one digit"
+            echo "  • At least one special character"
+            continue
+        fi
+        
+        password_confirm=$(prompt_password "Confirm password")
+        
+        if [ "$password" = "$password_confirm" ]; then
+            echo "$password"
+            return 0
+        else
+            echo -e "${RED}Passwords do not match. Please try again.${NC}"
+        fi
+    done
+}
+
+################################################################################
+# Advanced prompts
+################################################################################
+
+prompt_multiline() {
+    local prompt_text=$1
+    local end_marker="${2:-EOF}"
+    
+    echo -e "${CYAN}${SYMBOL_ARROW}${NC} $prompt_text"
+    echo -e "${YELLOW}(Type '$end_marker' on a new line to finish)${NC}"
+    
+    local input=""
+    local line
+    
+    while IFS= read -r line; do
+        if [ "$line" = "$end_marker" ]; then
+            break
+        fi
+        input+="$line"$'\n'
+    done
+    
+    echo "$input"
+}
+
+prompt_file_path() {
+    local prompt_text=$1
+    local must_exist=${2:-false}
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text")
+        
+        if [ "$must_exist" = true ] && [ ! -f "$value" ]; then
+            echo -e "${RED}File does not exist: $value${NC}"
+            continue
+        fi
+        
+        echo "$value"
+        return 0
+    done
+}
+
+prompt_directory_path() {
+    local prompt_text=$1
+    local must_exist=${2:-false}
+    local value
+    
+    while true; do
+        value=$(prompt_input "$prompt_text")
+        
+        if [ "$must_exist" = true ] && [ ! -d "$value" ]; then
+            echo -e "${RED}Directory does not exist: $value${NC}"
+            
+            if prompt_yes_no "Create directory?"; then
+                mkdir -p "$value"
+                echo "$value"
+                return 0
+            fi
+            continue
+        fi
+        
+        echo "$value"
+        return 0
+    done
+}
+
+################################################################################
+# Confirmation dialogs
+################################################################################
+
+confirm_continue() {
+    local message="${1:-Do you want to continue?}"
+    
+    echo ""
+    if ! prompt_yes_no "$message"; then
+        log_warn "Operation cancelled by user"
+        return 1
+    fi
+    return 0
+}
+
+confirm_destructive() {
+    local action=$1
+    
+    echo ""
+    log_warn "⚠️  DESTRUCTIVE ACTION: $action"
+    echo ""
+    
+    if ! prompt_yes_no "Are you absolutely sure?"; then
+        log_info "Action cancelled"
+        return 1
+    fi
+    
+    # Double confirmation for destructive actions
+    if ! prompt_yes_no "Type 'yes' to confirm" "n"; then
+        log_info "Action cancelled"
+        return 1
+    fi
+    
+    return 0
+}
+
+################################################################################
+# Progress indication
+################################################################################
+
+press_any_key() {
+    local message="${1:-Press any key to continue...}"
+    
+    echo ""
+    read -n 1 -s -r -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $message"
+    echo ""
+}
+
+wait_for_user() {
+    local message=$1
+    local seconds=${2:-5}
+    
+    echo ""
+    echo -e "${YELLOW}$message${NC}"
+    echo -e "${YELLOW}Waiting ${seconds} seconds...${NC}"
+    
+    for i in $(seq $seconds -1 1); do
+        echo -ne "\r${YELLOW}$i seconds remaining...${NC}"
+        sleep 1
+    done
+    echo -ne "\r${GREEN}Continuing...          ${NC}\n"
+    echo ""
+}
+
+################################################################################
+# Information display
+################################################################################
+
+show_info_box() {
+    local title=$1
+    shift
+    local lines=("$@")
+    
+    local max_length=0
+    for line in "${lines[@]}"; do
+        if [ ${#line} -gt $max_length ]; then
+            max_length=${#line}
+        fi
+    done
+    
+    local width=$((max_length + 4))
+    
+    echo ""
+    echo -e "${BLUE}╔$(printf '═%.0s' $(seq 1 $width))╗${NC}"
+    echo -e "${BLUE}║${NC} ${WHITE}${title}${NC}$(printf ' %.0s' $(seq 1 $((width - ${#title} - 1))))${BLUE}║${NC}"
+    echo -e "${BLUE}╠$(printf '═%.0s' $(seq 1 $width))╣${NC}"
+    
+    for line in "${lines[@]}"; do
+        echo -e "${BLUE}║${NC} ${line}$(printf ' %.0s' $(seq 1 $((width - ${#line} - 1))))${BLUE}║${NC}"
+    done
+    
+    echo -e "${BLUE}╚$(printf '═%.0s' $(seq 1 $width))╝${NC}"
+    echo ""
+}
+
+show_warning_box() {
+    local title=$1
+    shift
+    local lines=("$@")
+    
+    echo ""
+    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║${NC} ${RED}⚠️  WARNING: ${title}${NC}$(printf ' %.0s' $(seq 1 $((45 - ${#title}))))${YELLOW}║${NC}"
+    echo -e "${YELLOW}╠═══════════════════════════════════════════════════════════╣${NC}"
+    
+    for line in "${lines[@]}"; do
+        echo -e "${YELLOW}║${NC} ${line}$(printf ' %.0s' $(seq 1 $((58 - ${#line}))))${YELLOW}║${NC}"
+    done
+    
+    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+################################################################################
+# Menu system
+################################################################################
+
+show_menu() {
+    local title=$1
+    shift
+    local options=("$@")
+    
+    while true; do
+        clear
+        log_section "$title"
+        
+        for i in "${!options[@]}"; do
+            echo "  $((i+1))) ${options[$i]}"
+        done
+        echo ""
+        echo "  0) Exit"
+        echo ""
+        
+        read -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) Select option: " choice
+        
+        if [ "$choice" = "0" ]; then
+            return 255
+        elif [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#options[@]}" ]; then
+            return $((choice - 1))
+        else
+            echo -e "${RED}Invalid choice${NC}"
+            sleep 1
+        fi
+    done
+}
+
+################################################################################
+# Comparison display
+################################################################################
+
+show_comparison() {
+    local title=$1
+    local option1_title=$2
+    local option1_desc=$3
+    local option2_title=$4
+    local option2_desc=$5
+    
+    echo ""
+    log_section "$title"
+    
+    echo -e "${GREEN}Option 1: $option1_title${NC}"
+    echo "$option1_desc"
+    echo ""
+    
+    echo -e "${YELLOW}Option 2: $option2_title${NC}"
+    echo "$option2_desc"
+    echo ""
+    
+    if prompt_yes_no "Choose Option 1?"; then
+        return 0
+    else
+        return 1
+    fi
 }

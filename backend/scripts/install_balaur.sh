@@ -22,9 +22,9 @@ RESUME_FILE="/opt/balaur/.install_progress"
 CURRENT_STEP=0
 
 # Source utility functions
-source "$SCRIPT_DIR/modules/utils/logger.sh"
-source "$SCRIPT_DIR/modules/utils/validators.sh"
-source "$SCRIPT_DIR/modules/utils/prompts.sh"
+source "$SCRIPT_DIR/utils/logger.sh"
+source "$SCRIPT_DIR/utils/validators.sh"
+source "$SCRIPT_DIR/utils/prompts.sh"
 
 ################################################################################
 # Trap errors and cleanup
