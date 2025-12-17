@@ -1,0 +1,34 @@
+################################################################################
+# Balaur SMS Installation Configuration
+#
+# This file contains the answers for an unattended installation
+# Copy this file to install.conf and adjust the values ​​according to your environment
+#
+# Usage: sudo ./install_balaur.sh --config install.conf
+################################################################################
+
+# Server Configuration
+SERVER_NAME="balaur.university.edu"
+ADMIN_EMAIL="admin@university.edu"
+
+# Git Repository
+GIT_REPO_URL="https://github.com/rodricaybara/balaur.git"
+GIT_BRANCH="main"
+
+# Active Directory / LDAP Configuration
+LDAP_SERVER="ldaps://dc.university.edu:636"
+LDAP_BIND_DN="cn=balaur-service,ou=Service Accounts,dc=university,dc=edu"
+LDAP_SEARCH_BASE="dc=university,dc=edu"
+LDAP_SEARCH_FILTER="(sAMAccountName={username})"
+LDAP_USE_TLS="true"
+
+# Database Configuration
+DB_NAME="balaur_sms"
+DB_USER="balaur"
+
+# Installation Options
+INSTALL_SAMPLE_DATA="no"
+
+# CORS Origins (will be automatically set based on SERVER_NAME)
+# Format: ["http://localhost:3000","https://localhost:3000","http://SERVER_NAME","https://SERVER_NAME"]
+CORS_ORIGINS='["http://localhost:3000","https://localhost:3000","http://balaur.university.edu","https://balaur.university.edu"]'

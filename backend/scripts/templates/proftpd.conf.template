@@ -1,0 +1,139 @@
+#
+# ProFTPD Configuration for Balaur SMS
+#
+
+Include /etc/proftpd/modules.conf
+
+UseIPv6                         on
+ServerName                      "Balaur SMS FTP Server"
+ServerType                      standalone
+DeferWelcome                    off
+DefaultServer                   on
+ShowSymlinks                    on
+
+# Timeouts
+TimeoutNoTransfer               600
+TimeoutStalled                  600
+TimeoutIdle                     1200
+
+DisplayLogin                    welcome.msg
+DisplayChdir                    .message true
+ListOptions                     "-l"
+DenyFilter                      \*.*/
+Port                            21
+PassivePorts                    49152 65534
+
+<IfModule mod_ident.c>
+  IdentLookups                  off
+</IfModule>
+
+MaxInstances                    30
+User                            proftpd
+Group                           nogroup
+Umask                           022 022
+AllowOverwrite                  on
+
+TransferLog                     /var/log/proftpd/xferlog
+SystemLog                       /var/log/proftpd/proftpd.log
+
+<IfModule mod_quotatab.c>
+  QuotaEngine                   off
+</IfModule>
+
+<IfModule mod_ratio.c>
+  Ratios                        off
+</IfModule>
+
+<IfModule mod_delay.c>
+  DelayEngine                   on
+</IfModule>
+
+<IfModule mod_ctrls.c>
+  ControlsEngine                off
+  ControlsMaxClients            2
+  ControlsLog                   /var/log/proftpd/controls.log
+  ControlsInterval              5
+  ControlsSocket                /var/run/proftpd/proftpd.sock
+</IfModule>
+
+<IfModule mod_ctrls_admin.c>
+  AdminControlsEngine           off
+</IfModule>
+
+# TLS/FTPS Configuration
+Include /etc/proftpd/tls.conf
+
+# Balaur SMS Virtual Host
+<VirtualHost 0.0.0.0>
+  ServerName                    "Balaur SMS Storage"
+  DefaultRoot                   /srv/ftp/balaur
+  RequireValidShell             off
+  AllowStoreRestart             on
+  AllowRetrieveRestart          on
+  MaxClients                    20
+  MaxClientsPerUser             3
+  MaxHostsPerUser               2
+  ServerIdent                   on "Balaur SMS FTP Server"
+  
+  ExtendedLog                   /var/log/proftpd/balaur-access.log WRITE,READ
+  ExtendedLog                   /var/log/proftpd/balaur-auth.log AUTH auth
+  
+  # inbox/pending - Users upload here
+  <Directory /srv/ftp/balaur/inbox/pending>
+    <Limit ALL>
+      AllowUser                 balaur
+      AllowGroup                balaur-upload
+    </Limit>
+    <Limit STOR STOU>
+      AllowAll
+    </Limit>
+    <Limit DELE RNFR RNTO>
+      DenyAll
+    </Limit>
+    <Limit LIST NLST>
+      DenyAll
+    </Limit>
+    Umask                       022 022
+  </Directory>
+  
+  # inbox/processing - Backend only
+  <Directory /srv/ftp/balaur/inbox/processing>
+    <Limit ALL>
+      DenyAll
+    </Limit>
+  </Directory>
+  
+  # repository - Read-only downloads
+  <Directory /srv/ftp/balaur/repository>
+    <Limit ALL>
+      AllowUser                 balaur
+      AllowGroup                balaur-download
+    </Limit>
+    <Limit RETR>
+      AllowAll
+    </Limit>
+    <Limit WRITE STOR STOU DELE RNFR RNTO MKD RMD>
+      DenyAll
+    </Limit>
+    <Limit LIST NLST>
+      AllowAll
+    </Limit>
+  </Directory>
+  
+  # quarantine - Admin only
+  <Directory /srv/ftp/balaur/quarantine>
+    <Limit ALL>
+      AllowUser                 root
+      DenyAll
+    </Limit>
+  </Directory>
+  
+  # Security
+  PathDenyFilter                "(\\.\\./|/\\.\\./)"
+  PathDenyFilter                "^\\."
+  
+  <Directory /srv/ftp/balaur/*>
+    HideFiles                   ^\\.
+  </Directory>
+  
+</VirtualHost>

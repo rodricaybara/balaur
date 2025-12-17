@@ -1,0 +1,18 @@
+#
+# ProFTPD TLS/FTPS Configuration
+#
+
+<IfModule mod_tls.c>
+  TLSEngine                     on
+  TLSLog                        /var/log/proftpd/tls.log
+  TLSProtocol                   TLSv1.2 TLSv1.3
+  TLSCipherSuite                HIGH:!aNULL:!MD5:!DES:!3DES:!RC4
+  TLSRSACertificateFile         /etc/ssl/certs/proftpd.crt
+  TLSRSACertificateKeyFile      /etc/ssl/private/proftpd.key
+  TLSVerifyClient               off
+  TLSRequired                   on
+  TLSOptions                    NoSessionReuseRequired
+  TLSRenegotiate                none
+  TLSSessionCache               shm:/file=/var/run/proftpd/tls-sesscache
+  TLSTimeoutHandshake           30
+</IfModule>
