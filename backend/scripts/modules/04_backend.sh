@@ -6,19 +6,25 @@ source "$SCRIPT_DIR/utils/logger.sh"
 
 log_section "Backend Installation"
 
-# Clone repository
-log_step "Cloning repository..."
-if [ -d "/opt/balaur/.git" ]; then
-    log_info "Repository already cloned, pulling latest changes..."
-    cd /opt/balaur
-    sudo -u balaur-app git pull origin "$GIT_BRANCH" >> "$LOG_FILE" 2>&1
+# Copy repository files from local source
+log_step "Copying repository files from local source..."
+LOCAL_REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -d "/opt/balaur" ]; then
+    log_info "Target /opt/balaur already exists, updating files..."
 else
-    log_step "Cloning $GIT_REPO_URL..."
-    sudo -u balaur-app git clone "$GIT_REPO_URL" /opt/balaur >> "$LOG_FILE" 2>&1
-    cd /opt/balaur
-    sudo -u balaur-app git checkout "$GIT_BRANCH" >> "$LOG_FILE" 2>&1
+    log_step "Creating /opt/balaur..."
+    mkdir -p /opt/balaur >> "$LOG_FILE" 2>&1
 fi
-log_success "Repository ready"
+
+# Copy contents (prefer rsync, fall back to tar)
+if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete --exclude='.git' --exclude='venv' "$LOCAL_REPO_DIR/" /opt/balaur >> "$LOG_FILE" 2>&1
+else
+    (cd "$LOCAL_REPO_DIR" && tar cf - --exclude='.git' --exclude='venv' .) | (cd /opt/balaur && tar xf -) >> "$LOG_FILE" 2>&1
+fi
+
+chown -R balaur-app:balaur-app /opt/balaur >> "$LOG_FILE" 2>&1
+log_success "Repository files copied"
 
 # Create virtual environment
 log_step "Creating Python virtual environment..."
