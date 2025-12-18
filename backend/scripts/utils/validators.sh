@@ -297,12 +297,8 @@ check_dns() {
 check_port_available() {
     local port=$1
     
-    if ! command -v nc &>/dev/null; then
-        log_warn "netcat not installed, skipping port check"
-        return 0
-    fi
-    
-    if nc -z localhost "$port" 2>/dev/null; then
+    # Usar ss (disponible por defecto en Ubuntu)
+    if ss -tuln 2>/dev/null | grep -q ":${port} "; then
         log_error "Port $port is already in use"
         return 1
     else

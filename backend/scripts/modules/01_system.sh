@@ -27,7 +27,6 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     gnupg2 \
     ca-certificates \
     openssl \
-    netcat \
     >> "$LOG_FILE" 2>&1
 log_success "Essential packages installed"
 
