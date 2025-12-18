@@ -38,8 +38,15 @@ fi
 
 # Install dependencies
 log_step "Installing Python dependencies..."
-sudo -u balaur-app bash -c "source venv/bin/activate && pip install --upgrade pip >> '$LOG_FILE' 2>&1"
-sudo -u balaur-app bash -c "source venv/bin/activate && pip install -r requirements.txt >> '$LOG_FILE' 2>&1"
+# Use sudo tee to append logs as root while running commands as balaur-app
+if ! sudo -u balaur-app bash -lc "source venv/bin/activate && pip install --upgrade pip" 2>&1 | sudo tee -a "$LOG_FILE" >/dev/null; then
+    log_error "Failed to upgrade pip"
+    exit 1
+fi
+if ! sudo -u balaur-app bash -lc "source venv/bin/activate && pip install -r requirements.txt" 2>&1 | sudo tee -a "$LOG_FILE" >/dev/null; then
+    log_error "Failed to install Python requirements"
+    exit 1
+fi
 log_success "Dependencies installed"
 
 # Run setup_secrets.sh
