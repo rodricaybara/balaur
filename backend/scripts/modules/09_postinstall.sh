@@ -120,6 +120,10 @@ if __name__ == '__main__':
     asyncio.run(main())
 PY
 
+# Make the temp script readable/executable by the balaur-app user
+chown balaur-app:balaur-app "$TMP_PY"
+chmod 700 "$TMP_PY"
+
 # Run the check and capture output to log for diagnostics
 if sudo -u balaur-app bash -c "cd /opt/balaur/backend && source venv/bin/activate && python3 \"$TMP_PY\"" >> "$LOG_FILE" 2>&1; then
     log_success "Database connection OK"
