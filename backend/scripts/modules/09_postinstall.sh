@@ -99,12 +99,37 @@ fi
 log_step "Verifying database..."
 
 cd /opt/balaur/backend
-if sudo -u balaur-app bash -c "source venv/bin/activate && python3 -c 'from app.database import engine; from sqlalchemy import text; with engine.connect() as conn: conn.execute(text(\"SELECT 1\"))'" &>/dev/null; then
+# Use a temporary python script to avoid complex shell quoting issues and support async engines
+TMP_PY=$(mktemp /tmp/balaur_check_db.XXXX.py)
+cat > "$TMP_PY" << 'PY'
+import asyncio
+import sys
+from app.database import engine
+from sqlalchemy import text
+
+async def main():
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        print("DB_OK")
+    except Exception as e:
+        print("DB_ERROR:", repr(e), file=sys.stderr)
+        raise
+
+if __name__ == '__main__':
+    asyncio.run(main())
+PY
+
+# Run the check and capture output to log for diagnostics
+if sudo -u balaur-app bash -c "cd /opt/balaur/backend && source venv/bin/activate && python3 \"$TMP_PY\"" >> "$LOG_FILE" 2>&1; then
     log_success "Database connection OK"
 else
-    log_error "Database connection failed"
+    log_error "Database connection failed (see $LOG_FILE for details)"
+    rm -f "$TMP_PY"
     exit 1
 fi
+
+rm -f "$TMP_PY"
 
 # Check if tables exist
 TABLES=$(sudo -u postgres psql -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null | tr -d ' ')

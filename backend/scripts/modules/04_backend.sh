@@ -64,31 +64,40 @@ fi
 
 # Update LDAP configuration in .env
 log_step "Updating LDAP configuration..."
+# Helper to write safe single-quoted env entries (escapes single quotes)
+env_write() {
+    local name=$1
+    local val=${2:-}
+    local esc
+    esc=$(printf "%s" "$val" | sed "s/'/'\"'\"'/g")
+    printf "%s='%s'\n" "$name" "$esc" >> /opt/balaur/backend/.env
+}
+
+# Add header
 cat >> /opt/balaur/backend/.env << EOF
 
 # LDAP Configuration (added by installer)
-LDAP_SERVER=$LDAP_SERVER
-LDAP_PORT=$LDAP_PORT
-LDAP_USE_SSL=$LDAP_USE_SSL
-LDAP_USE_TLS=$LDAP_USE_TLS
-LDAP_BIND_DN=$LDAP_BIND_DN
-LDAP_BIND_PASSWORD=$LDAP_BIND_PASSWORD
-LDAP_BASE_DN=$LDAP_BASE_DN
-# Backwards compatibility
-LDAP_SEARCH_BASE=$LDAP_SEARCH_BASE
-LDAP_USER_SEARCH_BASE=$LDAP_USER_SEARCH_BASE
-LDAP_USER_SEARCH_FILTER=$LDAP_USER_SEARCH_FILTER
-LDAP_USER_OBJECT_CLASS=$LDAP_USER_OBJECT_CLASS
-LDAP_GROUP_ADMIN=$LDAP_GROUP_ADMIN
-LDAP_GROUP_MANAGER=$LDAP_GROUP_MANAGER
-LDAP_GROUP_USER=$LDAP_GROUP_USER
-
-# CORS Origins
-CORS_ORIGINS=$CORS_ORIGINS
-
-# API Documentation
-DOCS_ENABLED=false
 EOF
+
+# Write entries safely
+env_write LDAP_SERVER "$LDAP_SERVER"
+env_write LDAP_PORT "$LDAP_PORT"
+env_write LDAP_USE_SSL "$LDAP_USE_SSL"
+env_write LDAP_USE_TLS "$LDAP_USE_TLS"
+env_write LDAP_BIND_DN "$LDAP_BIND_DN"
+env_write LDAP_BIND_PASSWORD "$LDAP_BIND_PASSWORD"
+env_write LDAP_BASE_DN "$LDAP_BASE_DN"
+# Backwards compatibility
+env_write LDAP_SEARCH_BASE "$LDAP_SEARCH_BASE"
+env_write LDAP_USER_SEARCH_BASE "$LDAP_USER_SEARCH_BASE"
+env_write LDAP_USER_SEARCH_FILTER "$LDAP_USER_SEARCH_FILTER"
+env_write LDAP_USER_OBJECT_CLASS "$LDAP_USER_OBJECT_CLASS"
+env_write LDAP_GROUP_ADMIN "$LDAP_GROUP_ADMIN"
+env_write LDAP_GROUP_MANAGER "$LDAP_GROUP_MANAGER"
+env_write LDAP_GROUP_USER "$LDAP_GROUP_USER"
+
+env_write CORS_ORIGINS "$CORS_ORIGINS"
+env_write DOCS_ENABLED "false"
 
 chown balaur-app:balaur-app /opt/balaur/backend/.env
 chmod 600 /opt/balaur/backend/.env
