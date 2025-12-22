@@ -189,28 +189,65 @@ run_wizard() {
     # Active Directory / LDAP
     echo ""
     log_info "Active Directory / LDAP Configuration"
-    LDAP_SERVER=$(prompt_input "LDAP server URL" "ldaps://dc.example.com:636")
-    validate_ldap_url "$LDAP_SERVER" || {
-        log_error "Invalid LDAP URL format"
-        exit 1
-    }
-    
-    LDAP_BIND_DN=$(prompt_input "LDAP Bind DN" "cn=balaur-service,ou=Service Accounts,dc=example,dc=com")
+    LDAP_SERVER=$(prompt_ldap_url "LDAP server URL" "ldaps://dc.example.com:636")
+
+    # Derive port and SSL usage from URL (do not prompt for port)
+    if [[ $LDAP_SERVER =~ ^ldaps?://[^:]+:([0-9]+)$ ]]; then
+        LDAP_PORT="${BASH_REMATCH[1]}"
+    else
+        if [[ $LDAP_SERVER =~ ^ldaps:// ]]; then
+            LDAP_PORT=636
+        else
+            LDAP_PORT=389
+        fi
+    fi
+
+    if [[ $LDAP_SERVER =~ ^ldaps:// ]]; then
+        LDAP_USE_SSL="true"
+    else
+        LDAP_USE_SSL="false"
+    fi
+
+    LDAP_BIND_DN=$(prompt_dn "LDAP Bind DN" "cn=balaur-service,ou=Service Accounts,dc=example,dc=com")
     validate_dn "$LDAP_BIND_DN" || {
         log_error "Invalid DN format"
         exit 1
     }
-    
-    LDAP_SEARCH_BASE=$(prompt_input "LDAP Search Base" "dc=example,dc=com")
-    validate_dn "$LDAP_SEARCH_BASE" || {
-        log_error "Invalid search base format"
+
+    LDAP_BIND_PASSWORD=$(prompt_password "LDAP Bind Password (leave blank for anonymous bind)")
+
+    LDAP_BASE_DN=$(prompt_dn "LDAP Base DN" "dc=example,dc=com")
+    validate_dn "$LDAP_BASE_DN" || {
+        log_error "Invalid base DN format"
         exit 1
     }
-    
-    LDAP_SEARCH_FILTER=$(prompt_input "LDAP Search Filter" "(sAMAccountName={username})")
-    
-    LDAP_USE_TLS=$(prompt_yes_no "Use TLS for LDAP?" "y" && echo "true" || echo "false")
-    
+
+    LDAP_USER_SEARCH_BASE=$(prompt_dn "LDAP User Search Base" "ou=Users,dc=example,dc=com")
+    validate_dn "$LDAP_USER_SEARCH_BASE" || {
+        log_error "Invalid user search base format"
+        exit 1
+    }
+
+    # User search filter - validated
+    while true; do
+        LDAP_USER_SEARCH_FILTER=$(prompt_input "LDAP User Search Filter" "(sAMAccountName={username})")
+        if validate_ldap_filter "$LDAP_USER_SEARCH_FILTER"; then
+            break
+        fi
+        echo -e "${RED}Invalid LDAP filter. Please try again.${NC}"
+    done
+
+    LDAP_USER_OBJECT_CLASS=$(prompt_input "LDAP User Object Class" "person")
+
+    LDAP_USE_TLS=$(prompt_yes_no "Use STARTTLS for LDAP?" "n" && echo "true" || echo "false")
+
+    LDAP_GROUP_ADMIN=$(prompt_dn "LDAP Group (admin) DN" "cn=balaur-admins,ou=Groups,dc=example,dc=com")
+    LDAP_GROUP_MANAGER=$(prompt_dn "LDAP Group (manager) DN" "cn=balaur-managers,ou=Groups,dc=example,dc=com")
+    LDAP_GROUP_USER=$(prompt_dn "LDAP Group (user) DN" "cn=balaur-users,ou=Groups,dc=example,dc=com")
+
+    # Keep old variable name for compatibility
+    LDAP_SEARCH_BASE="$LDAP_BASE_DN"
+
     # Database
     echo ""
     log_info "Database Configuration"
@@ -241,10 +278,19 @@ ADMIN_EMAIL="$ADMIN_EMAIL"
 GIT_REPO_URL="$GIT_REPO_URL"
 GIT_BRANCH="$GIT_BRANCH"
 LDAP_SERVER="$LDAP_SERVER"
-LDAP_BIND_DN="$LDAP_BIND_DN"
-LDAP_SEARCH_BASE="$LDAP_SEARCH_BASE"
-LDAP_SEARCH_FILTER="$LDAP_SEARCH_FILTER"
+LDAP_PORT="$LDAP_PORT"
+LDAP_USE_SSL="$LDAP_USE_SSL"
 LDAP_USE_TLS="$LDAP_USE_TLS"
+LDAP_BIND_DN="$LDAP_BIND_DN"
+LDAP_BIND_PASSWORD="$LDAP_BIND_PASSWORD"
+LDAP_BASE_DN="$LDAP_BASE_DN"
+LDAP_SEARCH_BASE="$LDAP_SEARCH_BASE"
+LDAP_USER_SEARCH_BASE="$LDAP_USER_SEARCH_BASE"
+LDAP_USER_SEARCH_FILTER="$LDAP_USER_SEARCH_FILTER"
+LDAP_USER_OBJECT_CLASS="$LDAP_USER_OBJECT_CLASS"
+LDAP_GROUP_ADMIN="$LDAP_GROUP_ADMIN"
+LDAP_GROUP_MANAGER="$LDAP_GROUP_MANAGER"
+LDAP_GROUP_USER="$LDAP_GROUP_USER"
 DB_NAME="$DB_NAME"
 DB_USER="$DB_USER"
 INSTALL_SAMPLE_DATA="$INSTALL_SAMPLE_DATA"
@@ -255,15 +301,20 @@ EOF
     echo ""
     log_section "Configuration Summary"
     echo ""
-    echo "Server:          $SERVER_NAME"
-    echo "Admin Email:     $ADMIN_EMAIL"
-    echo "Git Repo:        $GIT_REPO_URL ($GIT_BRANCH)"
-    echo "LDAP Server:     $LDAP_SERVER"
-    echo "LDAP Bind DN:    $LDAP_BIND_DN"
-    echo "LDAP Search Base: $LDAP_SEARCH_BASE"
-    echo "Database Name:   $DB_NAME"
-    echo "Database User:   $DB_USER"
-    echo "Sample Data:     $INSTALL_SAMPLE_DATA"
+    echo "Server:                 $SERVER_NAME"
+    echo "Admin Email:            $ADMIN_EMAIL"
+    echo "Git Repo:               $GIT_REPO_URL ($GIT_BRANCH)"
+    echo "LDAP Server:            $LDAP_SERVER"
+    echo "LDAP Port:              $LDAP_PORT"
+    echo "LDAP SSL:               $LDAP_USE_SSL"
+    echo "LDAP STARTTLS:          $LDAP_USE_TLS"
+    echo "LDAP Base DN:           $LDAP_BASE_DN"
+    echo "LDAP User Search Base:  $LDAP_USER_SEARCH_BASE"
+    echo "LDAP User Filter:       $LDAP_USER_SEARCH_FILTER"
+    echo "LDAP Groups:            admin=$LDAP_GROUP_ADMIN, manager=$LDAP_GROUP_MANAGER, user=$LDAP_GROUP_USER"
+    echo "Database Name:          $DB_NAME"
+    echo "Database User:          $DB_USER"
+    echo "Sample Data:            $INSTALL_SAMPLE_DATA"
     echo ""
     
     if ! prompt_yes_no "Is this configuration correct?"; then
@@ -305,7 +356,7 @@ main() {
     
     # Export variables for modules
     export SERVER_NAME ADMIN_EMAIL GIT_REPO_URL GIT_BRANCH
-    export LDAP_SERVER LDAP_BIND_DN LDAP_SEARCH_BASE LDAP_SEARCH_FILTER LDAP_USE_TLS
+    export LDAP_SERVER LDAP_PORT LDAP_BIND_DN LDAP_BIND_PASSWORD LDAP_BASE_DN LDAP_SEARCH_BASE LDAP_USER_SEARCH_BASE LDAP_USER_SEARCH_FILTER LDAP_USER_OBJECT_CLASS LDAP_USE_SSL LDAP_USE_TLS LDAP_GROUP_ADMIN LDAP_GROUP_MANAGER LDAP_GROUP_USER
     export DB_NAME DB_USER INSTALL_SAMPLE_DATA CORS_ORIGINS
     export LOG_FILE
     
