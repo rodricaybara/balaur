@@ -73,6 +73,38 @@
 ```
 ---
 
+## ⚡ Quick Automated Installation
+
+If you want to install Balaur quickly using the automated installer, follow these minimal steps. This will run the interactive installer which asks for the configuration values (server name, admin email, Git repo and branch, LDAP details, database name/user, etc.). Make sure you have the information requested by the wizard at hand before starting.
+
+Requirements:
+
+- A machine with network access and sudo/root privileges
+- git installed (install with: `sudo apt update && sudo apt install -y git`)
+- Be prepared to provide the values the wizard asks for: Server FQDN/IP, Admin Email, Git repository/branch, LDAP server URL, LDAP Bind DN and password, LDAP base/search/filter, Database name/user, and whether to import sample data.
+
+Quick commands:
+
+```bash
+# Install git if needed
+sudo apt update && sudo apt install -y git
+
+# Clone repository to /opt (run as root)
+sudo git clone https://github.com/rodricaybara/balaur.git
+
+# Make installer executable and run as root
+sudo chmod +x balaur/backend/scripts/install_balaur.sh
+sudo balaur/backend/scripts/install_balaur.sh
+```
+
+Notes:
+
+- The installer must be run as root (or with `sudo`) and will guide you through configuration in an interactive wizard.
+- The installer supports resuming; it writes progress and a temporary config file (used to re-run or resume) so you can safely re-run it if something fails.
+- After running the script, follow the post-installation steps (services, logs and tests) described in the Step-by-Step section below.
+
+---
+
 ## 🔧 Step-by-Step Installation
 
 ### 1. Prepare the System
