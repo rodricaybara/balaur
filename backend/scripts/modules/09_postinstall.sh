@@ -104,6 +104,17 @@ TMP_PY=$(mktemp /tmp/balaur_check_db.XXXX.py)
 cat > "$TMP_PY" << 'PY'
 import asyncio
 import sys
+import os
+# Ensure package imports work when running from /tmp by showing sys.path
+print("PYTHON PATH:", file=sys.stderr)
+for p in sys.path:
+    print(p, file=sys.stderr)
+
+# If running outside repo, try to add /opt/balaur/backend to sys.path
+project_root = "/opt/balaur/backend"
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from app.database import engine
 from sqlalchemy import text
 
@@ -125,7 +136,8 @@ chown balaur-app:balaur-app "$TMP_PY"
 chmod 700 "$TMP_PY"
 
 # Run the check and capture output to log for diagnostics
-if sudo -u balaur-app bash -c "cd /opt/balaur/backend && source venv/bin/activate && python3 \"$TMP_PY\"" >> "$LOG_FILE" 2>&1; then
+# Ensure PYTHONPATH includes the backend project so 'import app' works
+if sudo -u balaur-app bash -c "cd /opt/balaur/backend && source venv/bin/activate && PYTHONPATH=/opt/balaur/backend python3 \"$TMP_PY\"" >> "$LOG_FILE" 2>&1; then
     log_success "Database connection OK"
 else
     log_error "Database connection failed (see $LOG_FILE for details)"
