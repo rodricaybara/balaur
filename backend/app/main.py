@@ -21,6 +21,9 @@ from app.routers import auth, users, software, installers, licenses, audit, syst
 # Agregar import del watcher
 from app.services.ftp_watcher import start_ftp_watcher, ftp_watcher
 
+# Audit middleware (class-based, persists logs to DB)
+from app.middleware.audit import AuditMiddleware
+
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
@@ -131,32 +134,9 @@ async def add_process_time_header(request: Request, call_next):
 
 
 # Audit logging middleware
-@app.middleware("http")
-async def audit_log_middleware(request: Request, call_next):
-    """Log all requests for audit purposes"""
-    
-    # Get client IP
-    client_ip = request.client.host if request.client else "unknown"
-    
-    # Get user from request state (set by auth dependency)
-    user_id = getattr(request.state, "user_id", None)
-    
-    # Log request
-    logger.info(
-        f"Request: {request.method} {request.url.path} | "
-        f"IP: {client_ip} | User: {user_id or 'anonymous'}"
-    )
-    
-    # Process request
-    response = await call_next(request)
-    
-    # Log response
-    logger.info(
-        f"Response: {request.method} {request.url.path} | "
-        f"Status: {response.status_code} | User: {user_id or 'anonymous'}"
-    )
-    
-    return response
+# Use class-based AuditMiddleware to persist audit logs to the database
+app.add_middleware(AuditMiddleware)
+
 
 
 # Security headers middleware

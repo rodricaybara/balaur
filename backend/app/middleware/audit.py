@@ -27,12 +27,29 @@ class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Procesa request y registra en audit log si corresponde"""
         
+        # Determinar acción candidata antes de ejecutar el request para diagnóstico
+        audit_action = self._get_audit_action(request)
+        if audit_action:
+            logger.info(f"Audit action detected: {audit_action.value} for {request.method} {request.url.path}")
+        else:
+            logger.debug(f"No audit action for {request.method} {request.url.path}")
+        
         # Ejecutar request
         response = await call_next(request)
         
-        # Solo auditar si fue exitoso (2xx)
-        if 200 <= response.status_code < 300:
-            await self._log_request(request, response)
+        # Decidir si crear registro:
+        # - Siempre registrar intentos de login/logout (incluso si fallaron)
+        # - Para otras acciones registrar solo si la respuesta fue 2xx
+        try:
+            if audit_action in (AuditAction.LOGIN, AuditAction.LOGOUT):
+                logger.info(f"Creating audit log for {audit_action.value} with status {response.status_code}")
+                await self._log_request(request, response)
+            elif 200 <= response.status_code < 300:
+                await self._log_request(request, response)
+            else:
+                logger.debug(f"Skipping audit for {request.method} {request.url.path} with status {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error while attempting to create audit log in dispatch: {e}", exc_info=True)
         
         return response
     
@@ -49,8 +66,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
             audit_action = self._get_audit_action(request)
             
             if not audit_action:
+                logger.debug(f"_log_request: no audit_action for {request.method} {request.url.path}")
                 return  # No auditar este request
             
+            # Evitar duplicados si el handler ya registró el evento
+            if getattr(request.state, "audit_logged", False):
+                logger.debug("_log_request: request already logged by handler, skipping")
+                return
+
             # Obtener usuario desde request state (inyectado por get_current_user)
             user = getattr(request.state, "user", None)
             
@@ -60,6 +83,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             
             # Si no hay usuario en endpoints protegidos, no auditar
             if not user and audit_action != AuditAction.LOGIN:
+                logger.debug(f"_log_request: no user found and action {audit_action} requires authenticated user -> skipping")
                 return
             
             # Extraer información del recurso
@@ -266,7 +290,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 db.add(audit_log)
                 await db.commit()
                 
-                logger.debug(
+                logger.info(
                     f"Audit log created: {action.value} by {audit_log.username} "
                     f"on {resource_type}:{resource_id}"
                 )
@@ -281,8 +305,9 @@ class AuditService:
     @staticmethod
     async def log_action(
         db: AsyncSession,
-        user: User,
-        action: AuditAction,
+        user: Optional[User] = None,
+        username: Optional[str] = None,
+        action: AuditAction = None,
         resource_type: Optional[str] = None,
         resource_id: Optional[int] = None,
         ip_address: Optional[str] = None,
@@ -300,11 +325,19 @@ class AuditService:
                 resource_type="license",
                 resource_id=license_id
             )
+
+        Also supports logging by username for unauthenticated events (e.g. failed login):
+            await AuditService.log_action(
+                db=db,
+                username="unknown_user",
+                action=AuditAction.LOGIN,
+                details={"success": False}
+            )
         """
         try:
             audit_log = AuditLog(
-                user_id=user.id,
-                username=user.username,
+                user_id=user.id if user else None,
+                username=(user.username if user else username if username else "anonymous"),
                 action=action,
                 resource_type=resource_type,
                 resource_id=resource_id,
@@ -316,8 +349,9 @@ class AuditService:
             db.add(audit_log)
             await db.commit()
             
-            logger.debug(
-                f"Manual audit log: {action.value} by {user.username} "
+            actor = user.username if user else (username if username else "anonymous")
+            logger.info(
+                f"Manual audit log: {action.value} by {actor} "
                 f"on {resource_type}:{resource_id}"
             )
             

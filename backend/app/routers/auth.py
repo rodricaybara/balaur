@@ -1,14 +1,15 @@
 """
 Router de autenticación
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.schemas import LoginRequest, RefreshRequest, TokenResponse, UserResponse
 from app.services.auth_service import AuthService
 from app.dependencies.auth import get_current_user
-from app.models import User
+from app.models import User, AuditAction
+from app.middleware.audit import AuditService
 
 router = APIRouter(tags=["Authentication"])
 
@@ -16,7 +17,8 @@ router = APIRouter(tags=["Authentication"])
 @router.post("/login", response_model=TokenResponse)
 async def login(
     credentials: LoginRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    request: Request = None
 ):
     """
     Iniciar sesión con credenciales LDAP/AD o locales
@@ -31,8 +33,37 @@ async def login(
         username=credentials.username,
         password=credentials.password
     )
+
+    # Prepare client IP and user agent
+    forwarded = request.headers.get("X-Forwarded-For") if request else None
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        client_ip = request.headers.get("X-Real-IP") if request else None
+        if not client_ip:
+            client_ip = request.client.host if request and request.client else "unknown"
+    user_agent = request.headers.get("user-agent") if request else None
     
     if not user:
+        # Log failed login attempt
+        try:
+            await AuditService.log_action(
+                db=db,
+                username=credentials.username,
+                action=AuditAction.LOGIN,
+                ip_address=client_ip,
+                user_agent=user_agent,
+                details={"success": False}
+            )
+            # Mark request as already logged to avoid duplicate logs in middleware
+            try:
+                request.state.audit_logged = True
+            except Exception:
+                pass
+        except Exception:
+            # Do not affect authentication flow
+            pass
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -47,6 +78,24 @@ async def login(
     
     # Generar tokens
     tokens = AuthService.create_tokens(user)
+
+    # Log successful login
+    try:
+        await AuditService.log_action(
+            db=db,
+            user=user,
+            action=AuditAction.LOGIN,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            details={"success": True}
+        )
+        try:
+            request.state.audit_logged = True
+        except Exception:
+            pass
+    except Exception:
+        # don't break login on audit failure
+        pass
     
     return tokens
 
