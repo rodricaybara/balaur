@@ -27,8 +27,10 @@ prompt_password() {
     local prompt_text=$1
     local value
     
+    # Use stderr for the newline so it is printed to the terminal even when
+    # the function output is captured via command substitution
     read -s -p "$(echo -e ${CYAN}${SYMBOL_ARROW}${NC}) $prompt_text: " value
-    echo ""
+    printf '\n' >&2
     echo "$value"
 }
 

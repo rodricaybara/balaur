@@ -215,6 +215,8 @@ run_wizard() {
     }
 
     LDAP_BIND_PASSWORD=$(prompt_password "LDAP Bind Password (leave blank for anonymous bind)")
+    # Remove any accidental newlines/carriage returns from password (prevents config corruption)
+    LDAP_BIND_PASSWORD=$(printf '%s' "$LDAP_BIND_PASSWORD" | tr -d '\r\n')
 
     LDAP_BASE_DN=$(prompt_dn "LDAP Base DN" "dc=example,dc=com")
     validate_dn "$LDAP_BASE_DN" || {
