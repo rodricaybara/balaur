@@ -14,6 +14,8 @@ import time
 
 from app.config import settings
 from app.database import engine
+import os
+from logging.handlers import RotatingFileHandler
 
 # Import routers
 from app.routers import auth, users, software, installers, licenses, audit, system
@@ -29,7 +31,27 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Add a rotating file handler to ensure logging to disk (if possible)
+try:
+    log_dir = os.path.dirname(settings.log_file_path)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+
+    file_handler = RotatingFileHandler(
+        filename=settings.log_file_path,
+        maxBytes=settings.log_max_bytes,
+        backupCount=settings.log_backup_count,
+    )
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    root_logger = logging.getLogger()
+    root_logger.addHandler(file_handler)
+except Exception as e:
+    # Fail gracefully if file logging cannot be set up (permissions, path, etc.)
+    logging.getLogger(__name__).warning(f"Could not set up file logging: {e}")
+
 logger = logging.getLogger(__name__)
+logger.info(f"Logging initialized. level={settings.log_level} file={settings.log_file_path}")
 
 
 @asynccontextmanager
