@@ -41,7 +41,7 @@ class LicenseResponse(LicenseBase):
 
 class LicenseDetailResponse(LicenseResponse):
     """Response detallada con clave descifrada (solo GET individual)"""
-    license_key: str = Field(..., description="Clave descifrada (solo en GET individual)")
+    license_key: str = Field(default="", description="Clave descifrada (solo en GET individual)")
 
 
 class LicenseListResponse(BaseModel):
