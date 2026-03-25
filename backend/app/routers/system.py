@@ -1,25 +1,43 @@
 """
 Router de endpoints de sistema (watcher, health, etc.)
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from typing import List
 from pathlib import Path
 from datetime import datetime
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.schemas.system import (
     PendingFileResponse,
     ProcessingFileResponse,
-    WatcherStatsResponse
+    WatcherStatsResponse,
+    WebUploadResponse,          # ← nuevo
 )
 from app.models import User
+from app.models.audit import AuditAction                     # ← nuevo
 from app.dependencies.auth import require_manager
+from app.database import get_db                              # ← nuevo
 from app.config import settings
 from app.services.ftp_watcher import ftp_watcher
+from app.services.file_service import file_service           # ← nuevo
+from app.middleware.audit import AuditService                # ← nuevo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# Helper IP — mismo patrón que software.py, installers.py, users.py
+def _get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    return request.client.host if request.client else "unknown"
 
 
 @router.get("/watcher-stats", response_model=WatcherStatsResponse)
@@ -190,3 +208,58 @@ async def list_processing_files(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list processing files: {str(e)}"
         )
+    
+@router.post(
+    "/upload-installer",
+    response_model=WebUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Subir instalador vía web (máx. WEB_UPLOAD_MAX_SIZE)",
+)
+async def upload_installer_web(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Sube un fichero instalador desde el navegador y lo deposita en
+    inbox/processing/ con su SHA-256 calculado.
+
+    El fichero aparece de inmediato en GET /system/processing-files
+    y puede registrarse con POST /installers sin ningún cambio
+    en ese flujo existente.
+
+    Límite: WEB_UPLOAD_MAX_SIZE (por defecto 1 GB).
+    Para ficheros más grandes usar acceso FTP directo.
+
+    **Requiere:** Rol de Manager o Admin
+    """
+    result = await file_service.save_web_upload(file)
+    response = WebUploadResponse.from_upload_result(result)
+
+    await AuditService.log_action(
+        db=db,
+        user=current_user,
+        action=AuditAction.CREATE,
+        resource_type="installer_upload",
+        resource_id=None,
+        ip_address=_get_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        details={
+            "filename": response.filename,
+            "sha256":   response.sha256,
+            "size":     response.size,
+            "source":   "web_upload",
+        },
+    )
+    try:
+        request.state.audit_logged = True
+    except Exception:
+        pass
+
+    logger.info(
+        f"Web upload registered by {current_user.username}: "
+        f"'{response.filename}' ({response.size_mb} MB)"
+    )
+
+    return response

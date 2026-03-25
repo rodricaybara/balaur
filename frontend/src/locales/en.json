@@ -139,7 +139,13 @@
       "uploading": "Uploading...",
       "validating": "Validating file...",
       "success": "File uploaded successfully",
-      "error": "Error uploading file"
+      "error": "Error uploading file",
+      "button": "Upload file",
+      "dropZoneTitle": "Drop the file here or click to browse",
+      "dropZoneHint": "Maximum 1 GB. Larger files must be uploaded via FTP.",
+      "submit": "Upload",
+      "errorExtension": "File type not allowed. Accepted: {exts}",
+      "errorSize": "File exceeds the 1 GB limit for web uploads. Use FTP for larger files."
     },
     "register": {
       "title": "Register Installer",

@@ -209,6 +209,122 @@ class FileService:
             sanitized = sanitized.replace("..", ".")
         
         return sanitized
+
+    @staticmethod
+    async def save_web_upload(file: "UploadFile") -> dict:
+        """
+        Recibe un UploadFile de FastAPI, lo valida y lo deposita en
+        inbox/processing/ con su fichero .sha256 adjunto.
+
+        Reutiliza las reglas de validación existentes (extensión vía
+        allowed_installer_extensions, límite vía web_upload_max_size).
+        No usa max_file_size — ese límite es exclusivo del flujo FTP.
+
+        Returns:
+            dict con filename, sha256, size
+
+        Raises:
+            HTTPException 400 — extensión no permitida
+            HTTPException 409 — fichero con ese nombre ya existe en processing/
+            HTTPException 413 — supera web_upload_max_size
+            HTTPException 500 — error de I/O
+        """
+        from fastapi import HTTPException, status  # import local para no crear dependencia circular
+
+        filename = file.filename or ""
+
+        # Sanitizar nombre — evita path traversal antes de tocar disco
+        filename = FileService.get_safe_filename(filename)
+        if not filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El nombre del fichero no es válido."
+            )
+
+        # Validar extensión — mismas reglas que el watcher FTP
+        if not FileService.validate_file_extension(filename):
+            allowed = ", ".join(sorted(settings.allowed_installer_extensions))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Extensión no permitida. Extensiones válidas: {allowed}"
+            )
+
+        processing_dir = Path(settings.ftp_inbox_processing)
+        dest_path      = processing_dir / filename
+        sha256_path    = processing_dir / f"{filename}.sha256"
+
+        # Conflicto de nombre — el usuario debe renombrar el fichero
+        if dest_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Ya existe un fichero llamado '{filename}' en la cola de procesado. "
+                    f"Renombra el fichero e inténtalo de nuevo."
+                )
+            )
+
+        # Escritura en streaming + cálculo SHA-256 simultáneo
+        # Nunca cargamos el fichero entero en memoria
+        hasher      = hashlib.sha256()
+        total_bytes = 0
+        chunk_size  = 1024 * 1024  # 1 MB por chunk
+
+        try:
+            async with aiofiles.open(dest_path, "wb") as out_file:
+                while True:
+                    chunk = await file.read(chunk_size)
+                    if not chunk:
+                        break
+                    total_bytes += len(chunk)
+                    if total_bytes > settings.web_upload_max_size:
+                        # Limpiar el fichero parcial antes de rechazar
+                        dest_path.unlink(missing_ok=True)
+                        limit_mb = settings.web_upload_max_size // (1024 * 1024)
+                        raise HTTPException(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail=(
+                                f"El fichero supera el límite de {limit_mb} MB "
+                                f"permitido para subidas web. "
+                                f"Para ficheros más grandes usa el acceso FTP."
+                            )
+                        )
+                    hasher.update(chunk)
+                    await out_file.write(chunk)
+
+        except HTTPException:
+            raise  # re-lanzar tal cual, ya tiene su HTTPException correcta
+        except Exception as exc:
+            dest_path.unlink(missing_ok=True)
+            logger.error(f"Error writing uploaded file '{filename}': {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error al escribir el fichero en el servidor."
+            )
+
+        sha256_hex = hasher.hexdigest()
+
+        # Escribir .sha256 — misma convención que usa el watcher FTP
+        try:
+            sha256_path.write_text(sha256_hex)
+        except Exception as exc:
+            # Si falla el .sha256 el fichero queda huérfano — limpiamos ambos
+            dest_path.unlink(missing_ok=True)
+            logger.error(f"Error writing .sha256 for '{filename}': {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error al escribir el fichero de verificación SHA-256."
+            )
+
+        logger.info(
+            f"Web upload successful: '{filename}' "
+            f"({total_bytes / (1024*1024):.1f} MB) sha256={sha256_hex[:16]}…"
+        )
+
+        return {
+            "filename": filename,
+            "sha256":   sha256_hex,
+            "size":     total_bytes,
+        }    
     
     @staticmethod
     async def get_file_info(file_path: Path) -> Optional[dict]:

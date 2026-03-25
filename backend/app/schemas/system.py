@@ -57,3 +57,19 @@ class WatcherStatsResponse(BaseModel):
     last_run_stats: dict = Field(..., description="Estadísticas última ejecución")
     recent_errors: list = Field(default_factory=list, description="Errores recientes")
     paths: dict = Field(..., description="Rutas configuradas")
+
+class WebUploadResponse(BaseModel):
+    """Respuesta tras una subida web exitosa de instalador."""
+    filename: str
+    sha256:   str
+    size:     int    # bytes
+    size_mb:  float  # calculado al construir
+
+    @classmethod
+    def from_upload_result(cls, result: dict) -> "WebUploadResponse":
+        return cls(
+            filename = result["filename"],
+            sha256   = result["sha256"],
+            size     = result["size"],
+            size_mb  = round(result["size"] / (1024 * 1024), 2),
+        )

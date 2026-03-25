@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import apiClient, { handleApiError } from '@/api/client';
 import type { InstallerResponse } from '@/api/api';
 import type { PendingFile, ProcessingFile } from '@/api/client';
+import type { WebUploadResponse } from '@/api/models'
 
 export const useInstallersStore = defineStore('installers', () => {
   // ============================================================================
@@ -295,6 +296,28 @@ export const useInstallersStore = defineStore('installers', () => {
     installersCache.value.clear();
   };
   
+  const uploadFile = async (
+    file: File,
+    onProgress?: (percent: number) => void
+  ): Promise<WebUploadResponse> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await apiClient.axios.post<WebUploadResponse>(
+      '/api/v1/system/upload-installer',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (event) => {
+          if (onProgress && event.total) {
+            onProgress(Math.round((event.loaded * 100) / event.total))
+          }
+        },
+      }
+    )
+    return response.data
+  }
+
   // ============================================================================
   // RETURN
   // ============================================================================
@@ -328,5 +351,6 @@ export const useInstallersStore = defineStore('installers', () => {
     fetchProcessingFiles,
     clearError,
     reset,
+    uploadFile,
   };
 });

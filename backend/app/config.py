@@ -37,7 +37,6 @@ class Settings(BaseSettings):
     environment: Literal["development", "staging", "production"] = "production"
     api_v1_prefix: str = "/api/v1"
     docs_enabled: bool = False
-    
     # CORS - Parse JSON string to list
     cors_origins: str | List[str] = '["http://localhost:5173"]'
     
@@ -130,7 +129,8 @@ class Settings(BaseSettings):
     # ============================================
     allowed_installer_extensions: str | List[str] = '[".exe",".msi",".dmg",".pkg",".deb",".rpm",".AppImage",".zip",".tar.gz"]'
     allowed_doc_extensions: str | List[str] = '[".pdf",".docx",".txt",".md"]'
-    max_file_size: int = 10737418240  # 10GB
+    max_file_size: int = 10737418240  # 10GB - Flujo FTP (no aplica a subidas HTTP desde frontend)
+    web_upload_max_size: int = 1073741824  # 1 GB — límite para subidas HTTP desde el frontend
     hash_algorithm: str = "sha256"
     
     @field_validator("allowed_installer_extensions", "allowed_doc_extensions", mode="before")

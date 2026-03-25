@@ -139,7 +139,13 @@
       "uploading": "Subiendo...",
       "validating": "Validando archivo...",
       "success": "Archivo subido correctamente",
-      "error": "Error al subir archivo"
+      "error": "Error al subir archivo",
+      "button": "Subir fichero",
+      "dropZoneTitle": "Arrastra el fichero aquí o haz clic para buscar",
+      "dropZoneHint": "Máximo 1 GB. Los ficheros más grandes deben subirse por FTP.",
+      "submit": "Subir",
+      "errorExtension": "Tipo de fichero no permitido. Aceptados: {exts}",
+      "errorSize": "El fichero supera el límite de 1 GB para subidas web. Usa FTP para ficheros más grandes."      
     },
     "register": {
       "title": "Registrar Instalador",
