@@ -32,7 +32,12 @@ from app.schemas.audit import (
     AuditLogListResponse,
     AuditLogCreate
 )
-
+from app.schemas.system import (
+    PendingFileResponse,
+    ProcessingFileResponse,
+    WatcherStatsResponse,
+    WebUploadResponse,
+)
 __all__ = [
     # Auth
     "LoginRequest",
@@ -63,4 +68,9 @@ __all__ = [
     "AuditLogResponse",
     "AuditLogListResponse",
     "AuditLogCreate",
+    # System
+    "PendingFileResponse",
+    "ProcessingFileResponse",
+    "WatcherStatsResponse",
+    "WebUploadResponse",
 ]

@@ -139,6 +139,7 @@ const onFileUploaded = async (result: {
   size: number;
   size_mb: number;
 }) => {
+  showUploadModal.value = false;
   activeTab.value = 'processing';
   await installersStore.fetchProcessingFiles();
   await fetchWatcherStats();
@@ -194,7 +195,7 @@ onBeforeUnmount(() => {
         <div class="flex items-center gap-3">
           <!-- Botón FTP — solo admins, ficheros > 1 GB -->
           <button
-            v-if="authStore.isAdmin"
+            v-show="authStore.isAdmin"
             @click="showFtpInfoModal = true"
             class="btn-secondary flex items-center gap-2"
             :title="t('installers.ftp.buttonTitle')"
@@ -205,7 +206,7 @@ onBeforeUnmount(() => {
 
           <!-- Botón subida web — managers y admins -->
           <button
-            v-if="authStore.canManageSoftware"
+            v-show="authStore.canManageSoftware"
             @click="showUploadModal = true"
             class="btn-primary flex items-center gap-2"
           >
@@ -314,7 +315,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="installersStore.installersList.length === 0" class="card text-center py-12">
+        <div v-else-if="installersStore.installersList.length === 0 && !installersStore.isLoading" class="card text-center py-12">
           <Download class="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 class="text-lg font-medium text-gray-900 mb-2">
             {{ t('installers.list.noInstallers') }}
@@ -323,7 +324,7 @@ onBeforeUnmount(() => {
             {{ t('installers.list.uploadFirst') }}
           </p>
           <button
-            v-if="authStore.canManageSoftware"
+            v-show="authStore.canManageSoftware"
             @click="showUploadModal = true"
             class="btn-primary"
           >

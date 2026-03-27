@@ -3,7 +3,13 @@ import { ref, computed } from 'vue';
 import apiClient, { handleApiError } from '@/api/client';
 import type { InstallerResponse } from '@/api/api';
 import type { PendingFile, ProcessingFile } from '@/api/client';
-import type { WebUploadResponse } from '@/api/models'
+
+interface WebUploadResult {
+  filename: string
+  sha256: string
+  size: number
+  size_mb: number
+}
 
 export const useInstallersStore = defineStore('installers', () => {
   // ============================================================================
@@ -296,15 +302,16 @@ export const useInstallersStore = defineStore('installers', () => {
     installersCache.value.clear();
   };
   
+// CAMBIAR el tipo de retorno:
   const uploadFile = async (
     file: File,
     onProgress?: (percent: number) => void
-  ): Promise<WebUploadResponse> => {
+  ): Promise<WebUploadResult> => {   // ← WebUploadResult en lugar de WebUploadResponse
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await apiClient.axios.post<WebUploadResponse>(
-      '/api/v1/system/upload-installer',
+    const response = await apiClient.axios.post<WebUploadResult>(
+      '/system/upload-installer',
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },

@@ -86,7 +86,6 @@ const handleUpload = async () => {
       uploadProgress.value = pct
     })
     emit('uploaded', result)
-    emit('close')
     clearFile()
   } catch (err) {
     error.value = handleApiError(err).message
